@@ -26,14 +26,31 @@ Dessa forma a estimativa de IA não altera o tempo real de trabalho registrado p
 
 A chave nunca deve ser versionada.
 
-Opção recomendada:
+No ambiente atual, o diretório de configuração está montado assim:
 
-```bash
-sudo install -o root -g www-data -m 640 /dev/null /etc/glpi/iosindicators.env
-sudo nano /etc/glpi/iosindicators.env
+```text
+/opt/glpi/glpi11/config:/var/glpi/config:rw
 ```
 
-Conteúdo:
+Portanto, no host a chave pode permanecer em:
+
+```text
+/opt/glpi/glpi11/config/iosindicators.env
+```
+
+E o plugin a encontrará dentro do container em:
+
+```text
+/var/glpi/config/iosindicators.env
+```
+
+Também é aceito um arquivo genérico:
+
+```text
+/var/glpi/config/.env
+```
+
+Conteúdo esperado:
 
 ```ini
 GEMINI_API_KEY="SUA_CHAVE"
@@ -41,9 +58,16 @@ GEMINI_API_KEY="SUA_CHAVE"
 
 O plugin também aceita `GEMINI_API_KEY` disponibilizada diretamente ao processo PHP/Apache/PHP-FPM.
 
+### Ordem de leitura
+
+1. variável de ambiente `GEMINI_API_KEY` já disponível no processo;
+2. `/var/glpi/config/iosindicators.env`;
+3. `/var/glpi/config/.env`;
+4. fallback para execução direta no host em `/opt/glpi/glpi11/config/iosindicators.env` ou `/opt/glpi/glpi11/config/.env`.
+
 ## Modelo
 
-O modelo é configurável na tela do plugin. O padrão da versão 0.8.0 é:
+O modelo é configurável na tela do plugin. O padrão da versão 0.8.x é:
 
 ```text
 gemini-3.8-flash
