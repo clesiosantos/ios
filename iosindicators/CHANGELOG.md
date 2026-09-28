@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+- Corrigido o parser para reconhecer tickets Zabbix já solucionados com título no formato `Resolved in ...: SIM | HOST | evento | descrição`.
+- Adicionado fallback pelo bloco `PROBLEM NAME: SIM | HOST | evento | descrição` presente no conteúdo/follow-up dos chamados solucionados.
+- O classificador agora aceita como evidência de origem Zabbix `Original problem ID`, `Link to problem in Zabbix`, `Problem name`, títulos `Problem:` e títulos `Resolved in`.
+- A classificação imediata de tickets novos passou a ser independente da Ação Automática: pode ficar habilitada mesmo durante testes com o cron desativado.
+
 ## 0.2.1
 - Corrigida a tela de configuração/execução manual no GLPI 11 que retornava `The action you have requested is not allowed`.
 - Removida a validação CSRF duplicada do `front/config.php`; o GLPI 11 já valida requisições POST no `CheckCsrfListener` antes de carregar a página legada.
