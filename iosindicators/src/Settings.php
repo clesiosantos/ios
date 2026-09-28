@@ -26,6 +26,13 @@ final class Settings
             'classifier_cursor_id'          => 0,
             'classifier_root_category'      => 'Monitoramento',
             'classifier_noc_root_group'     => 'NOC',
+            'ai_rca_enabled'                => 0,
+            'ai_rca_model'                  => 'gemini-3.8-flash',
+            'ai_rca_batch_size'             => 5,
+            'ai_rca_scan_limit'             => 500,
+            'ai_rca_max_context_chars'      => 18000,
+            'ai_rca_timeout_seconds'        => 45,
+            'ai_rca_redact_sensitive'       => 1,
         ];
     }
 
@@ -47,6 +54,10 @@ final class Settings
     {
         $days = max(1, min(3650, (int)($input['default_period_days'] ?? 30)));
         $batchSize = max(1, min(1000, (int)($input['classifier_batch_size'] ?? 100)));
+        $aiBatchSize = max(1, min(50, (int)($input['ai_rca_batch_size'] ?? 5)));
+        $aiScanLimit = max($aiBatchSize, min(5000, (int)($input['ai_rca_scan_limit'] ?? 500)));
+        $aiContextChars = max(4000, min(50000, (int)($input['ai_rca_max_context_chars'] ?? 18000)));
+        $aiTimeout = max(10, min(120, (int)($input['ai_rca_timeout_seconds'] ?? 45)));
 
         $mbtrAllowed = ['none', 'waiting_duration', 'close_delay_stat', 'actiontime', 'solve_delay_stat'];
         $mbtrSource = (string)($input['mbtr_source'] ?? 'none');
@@ -71,6 +82,13 @@ final class Settings
             'classifier_batch_size'         => $batchSize,
             'classifier_root_category'      => self::cleanName((string)($input['classifier_root_category'] ?? 'Monitoramento'), 'Monitoramento'),
             'classifier_noc_root_group'     => self::cleanName((string)($input['classifier_noc_root_group'] ?? 'NOC'), 'NOC'),
+            'ai_rca_enabled'                => isset($input['ai_rca_enabled']) ? 1 : 0,
+            'ai_rca_model'                  => self::cleanName((string)($input['ai_rca_model'] ?? 'gemini-3.8-flash'), 'gemini-3.8-flash'),
+            'ai_rca_batch_size'             => $aiBatchSize,
+            'ai_rca_scan_limit'             => $aiScanLimit,
+            'ai_rca_max_context_chars'      => $aiContextChars,
+            'ai_rca_timeout_seconds'        => $aiTimeout,
+            'ai_rca_redact_sensitive'       => isset($input['ai_rca_redact_sensitive']) ? 1 : 0,
         ];
 
         if (isset($input['reset_classifier_cursor']) || isset($input['classifier_cursor_id'])) {
