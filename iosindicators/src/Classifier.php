@@ -57,8 +57,9 @@ final class Classifier extends CommonGLPI
 
     public static function onTicketAdd(Ticket $ticket): bool
     {
-        if ((int) Settings::get('classifier_enabled', 0) !== 1
-            || (int) Settings::get('classifier_immediate', 1) !== 1) {
+        // O processamento imediato é independente do cron. Assim podemos manter a
+        // ação automática desabilitada durante os testes sem perder tickets novos.
+        if ((int) Settings::get('classifier_immediate', 1) !== 1) {
             return true;
         }
 
@@ -213,7 +214,22 @@ final class Classifier extends CommonGLPI
         $problemId = null;
         $failureStartedAt = null;
 
+        // Ticket ainda aberto: Problem: SIM | HOST | evento | descrição
         if (preg_match('/Problem:\s*[^|]+\|\s*([^|\r\n]+)\|\s*([^|\r\n]+)/iu', $name, $m)) {
+            $host = self::sanitizeHost($m[1]);
+            $event = self::sanitizeEvent($m[2]);
+        }
+
+        // Ticket já solucionado pelo Zabbix: Resolved in 1h 20m 0s: SIM | HOST | evento | descrição
+        if (($host === null || $event === null)
+            && preg_match('/Resolved\s+in\s+[^:]+:\s*[^|]+\|\s*([^|\r\n]+)\|\s*([^|\r\n]+)/iu', $name, $m)) {
+            $host = self::sanitizeHost($m[1]);
+            $event = self::sanitizeEvent($m[2]);
+        }
+
+        // O follow-up/descrição de tickets solucionados traz "PROBLEM NAME".
+        if (($host === null || $event === null)
+            && preg_match('/Problem\s+name:\s*[^|\r\n]+\|\s*([^|\r\n]+)\|\s*([^|\r\n]+)/iu', $content, $m)) {
             $host = self::sanitizeHost($m[1]);
             $event = self::sanitizeEvent($m[2]);
         }
@@ -234,8 +250,13 @@ final class Classifier extends CommonGLPI
             $failureStartedAt = sprintf('%s-%s-%s %s', $m[2], $m[3], $m[4], $m[1]);
         }
 
-        $isZabbix = $host !== null && $event !== null
-            && (stripos($haystack, 'Problem:') !== false || stripos($haystack, 'Original problem ID') !== false);
+        $zabbixEvidence = stripos($haystack, 'Original problem ID') !== false
+            || stripos($haystack, 'Link to problem in Zabbix') !== false
+            || stripos($haystack, 'Problem name:') !== false
+            || stripos($name, 'Problem:') !== false
+            || stripos($name, 'Resolved in ') !== false;
+
+        $isZabbix = $host !== null && $event !== null && $zabbixEvidence;
 
         return [
             'is_zabbix' => $isZabbix,
