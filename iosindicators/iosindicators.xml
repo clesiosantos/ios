@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <key>iosindicators</key>
+  <name>IOS - Indicadores de Incidentes</name>
+  <homepage></homepage>
+  <authors>
+    <author>IOS</author>
+  </authors>
+  <versions>
+    <version>
+      <num>0.1.1</num>
+      <compatibility>11.0</compatibility>
+    </version>
+  </versions>
+</root>
