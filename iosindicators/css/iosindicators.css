@@ -1,172 +1,307 @@
 .iosindicators-wrapper {
-    --ios-kpi-radius: 16px;
-    --ios-shadow: 0 12px 28px rgba(15, 23, 42, .08);
-    --ios-border: 1px solid rgba(148, 163, 184, .22);
+    --ios-kpi-radius: 20px;
+    --ios-shadow: 0 12px 36px rgba(15, 23, 42, .08);
+    --ios-shadow-soft: 0 8px 20px rgba(15, 23, 42, .05);
+    --ios-border: 1px solid rgba(148, 163, 184, .20);
+    --ios-muted: #64748b;
+    --ios-primary: #3158f5;
+    --ios-surface: #ffffff;
+    --ios-surface-alt: #f7f9fc;
 }
 
-.iosindicators-page {
+.iosindicators-wrapper {
+    padding-bottom: 28px;
+}
+
+.iosindicators-shell {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
 }
 
-.iosindicators-section-title h3 {
-    margin: 0 0 4px;
-    font-size: 1.15rem;
+.iosindicators-tabs,
+.iosindicators-hero,
+.iosindicators-panel,
+.iosindicators-kpi {
+    border: var(--ios-border);
+    box-shadow: var(--ios-shadow);
 }
 
-.iosindicators-section-title p {
-    margin: 0;
-    color: var(--tblr-muted, #667085);
+.iosindicators-tabs {
+    border-radius: 22px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #ffffff, #fbfcff);
+}
+
+.iosindicators-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 54px;
+    padding: 12px 16px;
+    border-radius: 16px !important;
+    font-weight: 700;
+    color: #475569;
+    background: transparent;
+    transition: all .2s ease;
+}
+
+.iosindicators-tab-btn i {
+    font-size: 20px;
+}
+
+.iosindicators-tab-btn.active,
+.iosindicators-tab-btn:hover {
+    color: #fff !important;
+    background: linear-gradient(135deg, #3158f5, #4f46e5) !important;
+    box-shadow: 0 8px 16px rgba(49, 88, 245, .25);
+}
+
+.iosindicators-tab-content {
+    display: block;
+}
+
+.iosindicators-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, .18), transparent 28%),
+        linear-gradient(180deg, #fff, #fbfcff);
+}
+
+.iosindicators-hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -70px -70px auto;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    background: rgba(49, 88, 245, .06);
+}
+
+.iosindicators-hero .card-body {
+    position: relative;
+    z-index: 1;
+    padding: 22px 24px;
+}
+
+.iosindicators-hero h3 {
+    font-size: clamp(1.35rem, 1.9vw, 1.9rem);
+}
+
+.iosindicators-hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ios-primary);
+}
+
+.iosindicators-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.iosindicators-chip {
+    min-width: 155px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, .78);
+    border: 1px solid rgba(148, 163, 184, .18);
+    box-shadow: var(--ios-shadow-soft);
+}
+
+.iosindicators-chip-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--ios-muted);
+}
+
+.iosindicators-chip strong {
+    font-size: 1rem;
 }
 
 .iosindicators-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     gap: 14px;
+}
+
+.iosindicators-grid-headline {
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+.iosindicators-grid-performance,
+.iosindicators-grid-quality,
+.iosindicators-grid-realtime {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .iosindicators-grid-compact {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
 
-.iosindicators-grid-headline {
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-}
-
-.iosindicators-grid-performance,
-.iosindicators-grid-quality {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
 .iosindicators-kpi {
     position: relative;
-    min-height: 138px;
-    padding: 16px 16px 14px;
+    min-height: 172px;
+    padding: 18px 18px 16px;
     border-radius: var(--ios-kpi-radius);
-    border: var(--ios-border);
-    box-shadow: var(--ios-shadow);
     overflow: hidden;
+    background: var(--ios-surface);
 }
 
-.iosindicators-grid-compact .iosindicators-kpi {
-    min-height: 108px;
-    padding: 12px;
-    box-shadow: 0 8px 16px rgba(15, 23, 42, .06);
-}
-
-.iosindicators-kpi::after {
+.iosindicators-kpi::before {
     content: "";
     position: absolute;
-    right: -24px;
-    bottom: -24px;
-    width: 82px;
-    height: 82px;
+    inset: auto -28px -28px auto;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, .18);
+    background: rgba(255, 255, 255, .22);
+}
+
+.iosindicators-kpi-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .iosindicators-kpi-icon {
-    position: absolute;
-    top: 14px;
-    right: 14px;
     font-size: 24px;
-    opacity: .78;
+    opacity: .88;
 }
 
-.iosindicators-kpi-value {
-    font-size: clamp(24px, 2.2vw, 40px);
-    line-height: 1.02;
-    letter-spacing: -.03em;
-    font-weight: 700;
-    padding-right: 32px;
+.iosindicators-info-btn {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    opacity: .9;
+    padding: 0;
+    line-height: 1;
+    font-size: 18px;
+}
+
+.iosindicators-info-btn.is-light {
+    color: #64748b;
+}
+
+.iosindicators-kpi-value,
+.iosindicators-kpi-label,
+.iosindicators-kpi-meta,
+.iosindicators-kpi-icon,
+.iosindicators-info-btn {
     position: relative;
     z-index: 1;
 }
 
+.iosindicators-kpi-value {
+    margin-top: 4px;
+    font-size: clamp(28px, 2.3vw, 42px);
+    line-height: 1.02;
+    letter-spacing: -.04em;
+    font-weight: 800;
+}
+
+.iosindicators-grid-compact .iosindicators-kpi {
+    min-height: 120px;
+    padding: 14px;
+}
+
 .iosindicators-grid-compact .iosindicators-kpi-value {
-    font-size: clamp(22px, 1.8vw, 32px);
+    font-size: clamp(24px, 2vw, 34px);
 }
 
 .iosindicators-kpi-label {
     margin-top: 14px;
     font-size: 15px;
-    font-weight: 600;
-    position: relative;
-    z-index: 1;
+    font-weight: 700;
 }
 
 .iosindicators-kpi-meta {
     margin-top: 6px;
     font-size: 12px;
-    line-height: 1.35;
-    opacity: .88;
-    position: relative;
-    z-index: 1;
+    line-height: 1.4;
+    opacity: .9;
 }
 
 .iosindicators-tone-yellow { background: linear-gradient(135deg, #ffe48f, #ffd45e); color: #664c00; }
-.iosindicators-tone-green  { background: linear-gradient(135deg, #7be18a, #46c466); color: #124b23; }
-.iosindicators-tone-orange { background: linear-gradient(135deg, #ffd6a0, #ffb85c); color: #7a4500; }
-.iosindicators-tone-cyan   { background: linear-gradient(135deg, #e9f6fb, #d8eef6); color: #2f7f98; }
-.iosindicators-tone-blue   { background: linear-gradient(135deg, #7db4f0, #5a90d6); color: #0e3b63; }
-.iosindicators-tone-gray   { background: linear-gradient(135deg, #f1f4f7, #e6eaef); color: #52606d; }
-.iosindicators-tone-light  { background: linear-gradient(135deg, #fbfcfd, #f3f6f9); color: #6b7280; }
-.iosindicators-tone-indigo { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #4636a2; }
-.iosindicators-tone-teal   { background: linear-gradient(135deg, #e2f7f4, #d1f0ea); color: #0e6b61; }
-.iosindicators-tone-purple { background: linear-gradient(135deg, #f1e8fb, #e8ddfa); color: #6b3fa2; }
-.iosindicators-tone-pink   { background: linear-gradient(135deg, #fde8f0, #fbd6e5); color: #9a3a64; }
-.iosindicators-tone-slate  { background: linear-gradient(135deg, #edf2f7, #dfe6ee); color: #475569; }
-.iosindicators-tone-success{ background: linear-gradient(135deg, #e1f8e7, #cff0d8); color: #1f6a37; }
-.iosindicators-tone-dark   { background: linear-gradient(135deg, #334155, #1f2937); color: #fff; }
+.iosindicators-tone-green  { background: linear-gradient(135deg, #87e3a3, #54d17d); color: #134f29; }
+.iosindicators-tone-orange { background: linear-gradient(135deg, #ffd4a0, #ffb257); color: #7a4300; }
+.iosindicators-tone-cyan   { background: linear-gradient(135deg, #ecf8ff, #d8efff); color: #236887; }
+.iosindicators-tone-blue   { background: linear-gradient(135deg, #8ec0ff, #679ef2); color: #113c69; }
+.iosindicators-tone-gray   { background: linear-gradient(135deg, #f7f8fb, #e9edf3); color: #44515f; }
+.iosindicators-tone-light  { background: linear-gradient(135deg, #ffffff, #f4f7fb); color: #5b6675; }
+.iosindicators-tone-indigo { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #4535a0; }
+.iosindicators-tone-teal   { background: linear-gradient(135deg, #dff7f4, #c9f0e8); color: #0f6c63; }
+.iosindicators-tone-purple { background: linear-gradient(135deg, #f3eaff, #e6d8ff); color: #6339a0; }
+.iosindicators-tone-pink   { background: linear-gradient(135deg, #fdeaf2, #fad8e5); color: #97385f; }
+.iosindicators-tone-slate  { background: linear-gradient(135deg, #edf2f7, #dfe7ef); color: #475569; }
+.iosindicators-tone-success{ background: linear-gradient(135deg, #e5f9eb, #d1f3db); color: #1f6b3b; }
+.iosindicators-tone-dark   { background: linear-gradient(135deg, #334155, #1f2937); color: #ffffff; }
 
 .iosindicators-panel {
-    border: var(--ios-border);
-    box-shadow: var(--ios-shadow);
-    border-radius: 18px;
+    border-radius: 22px;
     overflow: hidden;
+    background: linear-gradient(180deg, #fff, #fbfcff);
 }
 
 .iosindicators-panel .card-header {
-    background: #fff;
+    padding: 18px 18px 16px;
+    background: transparent;
     border-bottom: 1px solid rgba(148, 163, 184, .18);
-    padding: 14px 16px;
 }
 
 .iosindicators-panel .card-body {
-    padding: 14px 16px 16px;
+    padding: 16px 18px 18px;
 }
 
 .iosindicators-panel-title {
     display: flex;
-    gap: 12px;
     align-items: flex-start;
+    gap: 12px;
 }
 
 .iosindicators-panel-title > i {
     font-size: 22px;
-    color: var(--tblr-primary, #3b82f6);
+    color: var(--ios-primary);
 }
 
 .iosindicators-bar-row + .iosindicators-bar-row {
-    margin-top: 14px;
+    margin-top: 13px;
 }
 
-.iosindicators-bar-head {
+.iosindicators-bar-head,
+.iosindicators-completeness-head {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 6px;
+    gap: 12px;
+    margin-bottom: 7px;
 }
 
-.iosindicators-bar-label {
-    font-weight: 600;
+.iosindicators-bar-label,
+.iosindicators-completeness-head span:first-child {
+    font-weight: 700;
     word-break: break-word;
 }
 
-.iosindicators-bar-value {
-    color: #475569;
+.iosindicators-bar-value,
+.iosindicators-completeness-head span:last-child {
     white-space: nowrap;
+    color: #475569;
 }
 
 .iosindicators-bar-value small {
@@ -176,13 +311,56 @@
 .iosindicators-progress {
     height: 10px;
     border-radius: 999px;
-    background: #eef2f7;
+    background: #e8edf5;
     overflow: hidden;
+}
+
+.iosindicators-progress.lg {
+    height: 12px;
 }
 
 .iosindicators-progress .progress-bar {
     border-radius: 999px;
-    background: linear-gradient(90deg, #4f46e5, #0ea5e9);
+    background: linear-gradient(90deg, #3158f5, #0ea5e9);
+}
+
+.iosindicators-completeness-row + .iosindicators-completeness-row {
+    margin-top: 14px;
+}
+
+.iosindicators-completeness-meta {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.iosindicators-table thead th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #64748b;
+    border-bottom-width: 1px;
+}
+
+.iosindicators-table td,
+.iosindicators-table th {
+    vertical-align: middle;
+    padding: 12px 14px;
+}
+
+.iosindicators-empty-state {
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: #64748b;
+}
+
+.iosindicators-empty-state i {
+    font-size: 28px;
+    opacity: .7;
 }
 
 .iosindicators-definitions td {
@@ -191,18 +369,25 @@
 
 .iosindicators-filter .form-control,
 .iosindicators-filter .form-select {
-    min-width: 138px;
+    min-width: 145px;
 }
 
 .iosindicators-native-card .card-body {
     padding: 12px;
 }
 
+@media (max-width: 1200px) {
+    .iosindicators-chip-group {
+        justify-content: flex-start;
+    }
+}
+
 @media (max-width: 992px) {
     .iosindicators-grid,
     .iosindicators-grid-headline,
     .iosindicators-grid-performance,
-    .iosindicators-grid-quality {
+    .iosindicators-grid-quality,
+    .iosindicators-grid-realtime {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -212,15 +397,30 @@
     .iosindicators-grid-headline,
     .iosindicators-grid-performance,
     .iosindicators-grid-quality,
+    .iosindicators-grid-realtime,
     .iosindicators-grid-compact {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .iosindicators-filter {
-        width: 100%;
+    .iosindicators-tab-btn {
+        min-height: 48px;
+        padding: 10px 12px;
+        font-size: 14px;
+    }
+
+    .iosindicators-tab-btn span {
+        display: none;
+    }
+
+    .iosindicators-hero .card-body,
+    .iosindicators-panel .card-header,
+    .iosindicators-panel .card-body {
+        padding-left: 14px;
+        padding-right: 14px;
     }
 
     .iosindicators-kpi {
-        min-height: 124px;
+        min-height: 150px;
+        padding: 16px 16px 14px;
     }
 }

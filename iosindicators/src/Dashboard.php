@@ -124,51 +124,143 @@ final class Dashboard extends CommonDBTM
 
     public static function renderPage(array $summary): void
     {
-        $headline = self::headlineCards($summary);
-        $performance = self::performanceCards($summary);
-        $quality = self::qualityCards($summary);
+        echo '<div class="iosindicators-shell">';
+        echo self::renderTabsNavigation();
+        echo '<div class="tab-content iosindicators-tab-content" id="iosindicators-tab-content">';
 
-        echo '<div class="iosindicators-page">';
-
-        echo '<div class="iosindicators-section-title">';
-        echo '<h3>Visão executiva</h3>';
-        echo '<p>Volumes, normalização dos tickets e saúde operacional do ambiente monitorado.</p>';
-        echo '</div>';
-        echo self::renderMetricGrid($headline, false, 'iosindicators-grid-headline');
-
-        echo '<div class="iosindicators-section-title mt-4">';
-        echo '<h3>Velocidade operacional</h3>';
-        echo '<p>Tempos médios, percentis e confiabilidade calculados a partir dos tickets classificados.</p>';
-        echo '</div>';
-        echo self::renderMetricGrid($performance, false, 'iosindicators-grid-performance');
-
-        echo '<div class="iosindicators-section-title mt-4">';
-        echo '<h3>Qualidade do dado</h3>';
-        echo '<p>Cobertura estrutural para apoiar análise, RCA e futura automação inteligente.</p>';
-        echo '</div>';
-        echo self::renderMetricGrid($quality, false, 'iosindicators-grid-quality');
-
-        echo '<div class="row g-3 mt-2">';
-
-        echo '<div class="col-12 col-xxl-8">';
-        echo '<div class="row g-3">';
-        echo '<div class="col-xl-6">' . self::renderDistributionCard('Eventos mais frequentes', 'Top eventos detectados no período.', Metrics::top($summary['event_counts'], 6), 'ti ti-bolt') . '</div>';
-        echo '<div class="col-xl-6">' . self::renderDistributionCard('Clientes com mais incidentes', 'Clientes com maior volume de tickets no recorte.', Metrics::top($summary['client_counts'], 6), 'ti ti-building-community') . '</div>';
-        echo '<div class="col-xl-6">' . self::renderDistributionCard('Hosts reincidentes', 'Hosts com maior recorrência no período.', Metrics::top($summary['host_counts'], 6), 'ti ti-server-2') . '</div>';
-        echo '<div class="col-xl-6">' . self::renderDistributionCard('Distribuição por tipo de ativo', 'Leitura com base no código do equipamento identificado no host.', Metrics::top($summary['equipment_counts'], 6), 'ti ti-devices') . '</div>';
-        echo '</div>';
+        echo '<div class="tab-pane fade show active" id="tab-executiva" role="tabpanel" aria-labelledby="tab-executiva-btn">';
+        echo self::renderExecutiveTab($summary);
         echo '</div>';
 
-        echo '<div class="col-12 col-xxl-4">';
-        echo '<div class="row g-3">';
-        echo '<div class="col-12">' . self::renderDistributionCard('Pipeline de status', 'Situação atual dos tickets incluídos no filtro.', Metrics::top($summary['status_counts'], 6), 'ti ti-git-branch') . '</div>';
-        echo '<div class="col-12">' . self::renderDistributionCard('Severidade monitorada', 'Severidade extraída do corpo do ticket.', Metrics::top($summary['severity_counts'], 6), 'ti ti-alert-triangle') . '</div>';
-        echo '<div class="col-12">' . self::renderDefinitionCard() . '</div>';
+        echo '<div class="tab-pane fade" id="tab-velocidade" role="tabpanel" aria-labelledby="tab-velocidade-btn">';
+        echo self::renderVelocityTab($summary);
         echo '</div>';
+
+        echo '<div class="tab-pane fade" id="tab-qualidade" role="tabpanel" aria-labelledby="tab-qualidade-btn">';
+        echo self::renderQualityTab($summary);
+        echo '</div>';
+
+        echo '<div class="tab-pane fade" id="tab-tempo-real" role="tabpanel" aria-labelledby="tab-tempo-real-btn">';
+        echo self::renderRealtimeTab($summary);
         echo '</div>';
 
         echo '</div>';
         echo '</div>';
+    }
+
+    private static function renderTabsNavigation(): string
+    {
+        $tabs = [
+            ['id' => 'tab-executiva', 'label' => 'Visão executiva', 'icon' => 'ti ti-layout-dashboard'],
+            ['id' => 'tab-velocidade', 'label' => 'Velocidade operacional', 'icon' => 'ti ti-bolt'],
+            ['id' => 'tab-qualidade', 'label' => 'Qualidade do dado', 'icon' => 'ti ti-shield-check'],
+            ['id' => 'tab-tempo-real', 'label' => 'Tempo Real', 'icon' => 'ti ti-activity-heartbeat'],
+        ];
+
+        $html = '<div class="iosindicators-tabs card mb-4"><div class="card-body p-2">';
+        $html .= '<ul class="nav nav-pills nav-fill gap-2" id="iosindicators-tabs" role="tablist">';
+
+        foreach ($tabs as $index => $tab) {
+            $active = $index === 0 ? ' active' : '';
+            $selected = $index === 0 ? 'true' : 'false';
+            $html .= '<li class="nav-item" role="presentation">';
+            $html .= '<button class="nav-link iosindicators-tab-btn' . $active . '" id="' . htmlescape($tab['id']) . '-btn" data-bs-toggle="tab" data-bs-target="#' . htmlescape($tab['id']) . '" type="button" role="tab" aria-controls="' . htmlescape($tab['id']) . '" aria-selected="' . $selected . '">';
+            $html .= '<i class="' . htmlescape($tab['icon']) . '"></i><span>' . htmlescape($tab['label']) . '</span>';
+            $html .= '</button></li>';
+        }
+
+        $html .= '</ul></div></div>';
+        return $html;
+    }
+
+    private static function renderExecutiveTab(array $s): string
+    {
+        $html = self::renderHero(
+            'Visão executiva',
+            'Volumes, normalização dos tickets e saúde operacional do ambiente monitorado.',
+            [
+                ['label' => 'Período', 'value' => date('d/m/Y', strtotime((string) $s['period_from'])) . ' → ' . date('d/m/Y', strtotime((string) $s['period_to']))],
+                ['label' => 'Cobertura estruturada', 'value' => Metrics::percent($s['coverage_structured_pct'])],
+                ['label' => 'Disponibilidade', 'value' => Metrics::percent($s['availability_pct'], 2)],
+            ]
+        );
+
+        $html .= self::renderMetricGrid(self::headlineCards($s), false, 'iosindicators-grid-headline');
+
+        $html .= '<div class="row g-3 mt-1">';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Eventos mais frequentes', 'Top eventos detectados no período.', Metrics::top($s['event_counts'], 6), 'ti ti-bolt', 'Concentração dos tipos de incidente capturados no recorte selecionado.') . '</div>';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Clientes com mais incidentes', 'Clientes com maior volume de tickets no recorte.', Metrics::top($s['client_counts'], 6), 'ti ti-building-community', 'Identifica concentração de incidentes por cliente para apoiar priorização.') . '</div>';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Hosts reincidentes', 'Hosts com maior recorrência no período.', Metrics::top($s['host_counts'], 6), 'ti ti-server-2', 'Lista os hosts com maior reincidência de incidentes, não apenas os que estão abertos.') . '</div>';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Distribuição por tipo de ativo', 'Leitura com base no código do equipamento identificado no host.', Metrics::top($s['equipment_counts'], 6), 'ti ti-devices', 'Tipificação inferida do host: SRV, SW, DB, WEB, FW e demais padrões configurados.') . '</div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+
+    private static function renderVelocityTab(array $s): string
+    {
+        $html = self::renderHero(
+            'Velocidade operacional',
+            'Tempos médios, percentis e confiabilidade calculados a partir dos tickets classificados.',
+            [
+                ['label' => 'TTO médio', 'value' => Metrics::duration($s['avg_tto'])],
+                ['label' => 'MTTR', 'value' => Metrics::duration($s['avg_mttr'])],
+                ['label' => 'MTBF', 'value' => Metrics::duration($s['mtbf'])],
+            ]
+        );
+
+        $html .= self::renderMetricGrid(self::performanceCards($s), false, 'iosindicators-grid-performance');
+        $html .= '<div class="row g-3 mt-1">';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Pipeline de status', 'Situação atual dos tickets incluídos no filtro.', Metrics::top($s['status_counts'], 6), 'ti ti-git-branch', 'Distribuição do estoque de tickets por status dentro do período selecionado.') . '</div>';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Severidade monitorada', 'Severidade extraída do corpo do ticket.', Metrics::top($s['severity_counts'], 6), 'ti ti-alert-triangle', 'Severidade extraída das informações do ticket originado pelo monitoramento.') . '</div>';
+        $html .= '</div>';
+        return $html;
+    }
+
+    private static function renderQualityTab(array $s): string
+    {
+        $html = self::renderHero(
+            'Qualidade do dado',
+            'Cobertura estrutural para apoiar análise, RCA e futura automação inteligente.',
+            [
+                ['label' => 'Categorias', 'value' => Metrics::percent($s['coverage_category_pct'])],
+                ['label' => 'Ativos', 'value' => Metrics::percent($s['coverage_item_pct'])],
+                ['label' => 'Requester + NOC', 'value' => Metrics::percent($s['coverage_structured_pct'])],
+            ]
+        );
+
+        $html .= self::renderMetricGrid(self::qualityCards($s), false, 'iosindicators-grid-quality');
+        $html .= '<div class="row g-3 mt-1">';
+        $html .= '<div class="col-12 col-xl-7">' . self::renderQualityMatrixCard($s) . '</div>';
+        $html .= '<div class="col-12 col-xl-5">' . self::renderDefinitionCard() . '</div>';
+        $html .= '</div>';
+        return $html;
+    }
+
+    private static function renderRealtimeTab(array $s): string
+    {
+        $html = self::renderHero(
+            'Tempo Real',
+            'Leitura operacional focada nos tickets que ainda estão em tratamento no momento do recorte.',
+            [
+                ['label' => 'Abertos agora', 'value' => self::compactNumber((int) $s['open'])],
+                ['label' => 'Clientes impactados', 'value' => self::compactNumber((int) $s['open_clients'])],
+                ['label' => 'Hosts impactados', 'value' => self::compactNumber((int) $s['open_hosts'])],
+            ]
+        );
+
+        $html .= self::renderMetricGrid(self::realtimeCards($s), false, 'iosindicators-grid-realtime');
+        $html .= '<div class="row g-3 mt-1">';
+        $html .= '<div class="col-12 col-xxl-7">' . self::renderLatestTicketsCard($s['latest_tickets'] ?? []) . '</div>';
+        $html .= '<div class="col-12 col-xxl-5">';
+        $html .= '<div class="row g-3">';
+        $html .= '<div class="col-12">' . self::renderDistributionCard('Pipeline aberto', 'Tickets ainda em tratamento.', Metrics::top($s['open_status_counts'], 6), 'ti ti-layers-linked', 'Recorte apenas dos tickets ainda não solucionados ou fechados.') . '</div>';
+        $html .= '<div class="col-12">' . self::renderDistributionCard('Clientes impactados agora', 'Clientes com tickets abertos no momento.', Metrics::top($s['open_client_counts'], 6), 'ti ti-users-group', 'Concentração dos tickets abertos por cliente.') . '</div>';
+        $html .= '</div></div>';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Hosts impactados agora', 'Hosts com tickets abertos no momento.', Metrics::top($s['open_host_counts'], 6), 'ti ti-server', 'Hosts com ocorrências ainda ativas no recorte.') . '</div>';
+        $html .= '<div class="col-12 col-xl-6">' . self::renderDistributionCard('Severidade ativa', 'Severidade dos tickets ainda abertos.', Metrics::top($s['open_severity_counts'], 6), 'ti ti-radar-2', 'Severidades extraídas dos tickets que seguem em tratamento.') . '</div>';
+        $html .= '</div>';
+        return $html;
     }
 
     private static function cardsForWidget(array $s): array
@@ -186,39 +278,93 @@ final class Dashboard extends CommonDBTM
     private static function headlineCards(array $s): array
     {
         return [
-            ['value' => self::compactNumber((int) $s['total']), 'label' => 'Incidentes no período', 'icon' => 'ti ti-ticket', 'tone' => 'yellow', 'meta' => 'Base consolidada do painel'],
-            ['value' => self::compactNumber((int) $s['open']), 'label' => 'Em tratamento', 'icon' => 'ti ti-loader-2', 'tone' => 'cyan', 'meta' => self::compactNumber((int) $s['incoming']) . ' novos e ' . self::compactNumber((int) $s['assigned']) . ' atribuídos'],
-            ['value' => self::compactNumber((int) ($s['solved'] + $s['closed'])), 'label' => 'Normalizados', 'icon' => 'ti ti-checkbox', 'tone' => 'success', 'meta' => self::compactNumber((int) $s['closed']) . ' fechados no recorte'],
-            ['value' => Metrics::percent($s['coverage_structured_pct']), 'label' => 'Cobertura estruturada', 'icon' => 'ti ti-database-check', 'tone' => 'indigo', 'meta' => self::compactNumber((int) $s['structured_tickets']) . ' tickets com categoria + item + requester + NOC'],
-            ['value' => Metrics::percent($s['availability_pct'], 2), 'label' => 'Disponibilidade estimada', 'icon' => 'ti ti-shield-check', 'tone' => 'green', 'meta' => 'Cálculo: MTBF / (MTBF + MTTR)'],
-            ['value' => self::compactNumber((int) $s['recurrent_hosts']), 'label' => 'Hosts reincidentes', 'icon' => 'ti ti-repeat', 'tone' => 'orange', 'meta' => Metrics::percent($s['recurrent_ticket_pct']) . ' dos tickets em hosts com 2+ ocorrências'],
+            [
+                'value' => self::compactNumber((int) $s['total']),
+                'label' => 'Incidentes no período',
+                'icon' => 'ti ti-ticket',
+                'tone' => 'yellow',
+                'meta' => 'Base consolidada do painel',
+                'tooltip' => 'Total de tickets de incidente incluídos no recorte selecionado.',
+            ],
+            [
+                'value' => self::compactNumber((int) $s['open']),
+                'label' => 'Em tratamento',
+                'icon' => 'ti ti-loader-2',
+                'tone' => 'cyan',
+                'meta' => self::compactNumber((int) $s['incoming']) . ' novos e ' . self::compactNumber((int) $s['assigned']) . ' atribuídos',
+                'tooltip' => 'Tickets ainda não solucionados/fechados no período selecionado.',
+            ],
+            [
+                'value' => self::compactNumber((int) ($s['solved'] + $s['closed'])),
+                'label' => 'Normalizados',
+                'icon' => 'ti ti-checkbox',
+                'tone' => 'success',
+                'meta' => self::compactNumber((int) $s['closed']) . ' fechados no recorte',
+                'tooltip' => 'Tickets solucionados ou fechados dentro do recorte.',
+            ],
+            [
+                'value' => Metrics::percent($s['coverage_structured_pct']),
+                'label' => 'Cobertura estruturada',
+                'icon' => 'ti ti-cpu',
+                'tone' => 'indigo',
+                'meta' => self::compactNumber((int) $s['structured_tickets']) . ' tickets com categoria + item + requester + NOC',
+                'tooltip' => 'Percentual de tickets já classificados com estrutura mínima para análise operacional.',
+            ],
+            [
+                'value' => Metrics::percent($s['availability_pct'], 2),
+                'label' => 'Disponibilidade estimada',
+                'icon' => 'ti ti-shield-check',
+                'tone' => 'green',
+                'meta' => 'Cálculo: MTBF / (MTBF + MTTR)',
+                'tooltip' => 'Estimativa simplificada de disponibilidade com base na confiabilidade e no tempo médio de reparo.',
+            ],
+            [
+                'value' => self::compactNumber((int) $s['recurrent_hosts']),
+                'label' => 'Hosts reincidentes',
+                'icon' => 'ti ti-repeat',
+                'tone' => 'orange',
+                'meta' => Metrics::percent($s['recurrent_ticket_pct']) . ' dos tickets em hosts com 2+ ocorrências',
+                'tooltip' => 'Hosts que tiveram duas ou mais ocorrências dentro do recorte.',
+            ],
         ];
     }
 
     private static function performanceCards(array $s): array
     {
         return [
-            ['value' => Metrics::duration($s['avg_tto']), 'label' => 'TTO médio', 'icon' => 'ti ti-user-check', 'tone' => 'indigo', 'meta' => 'Tempo até assumir o ticket'],
-            ['value' => Metrics::duration($s['avg_mttr']), 'label' => 'MTTR', 'icon' => 'ti ti-tool', 'tone' => 'purple', 'meta' => 'Tempo médio de reparo'],
-            ['value' => Metrics::duration($s['p50_mttr']), 'label' => 'P50 solução', 'icon' => 'ti ti-clock-hour-4', 'tone' => 'teal', 'meta' => 'Mediana do tempo até solução'],
-            ['value' => Metrics::duration($s['p90_mttr']), 'label' => 'P90 solução', 'icon' => 'ti ti-chart-line', 'tone' => 'teal', 'meta' => '90% dos tickets resolvidos abaixo deste tempo'],
-            ['value' => Metrics::duration($s['p95_mttr']), 'label' => 'P95 solução', 'icon' => 'ti ti-chart-line', 'tone' => 'teal', 'meta' => '95% dos tickets resolvidos abaixo deste tempo'],
-            ['value' => Metrics::duration($s['mtbf']), 'label' => 'MTBF', 'icon' => 'ti ti-activity', 'tone' => 'blue', 'meta' => 'Tempo médio entre falhas por host'],
-            ['value' => Metrics::duration($s['mtbr']), 'label' => 'MTBR', 'icon' => 'ti ti-arrows-exchange', 'tone' => 'slate', 'meta' => 'Tempo médio entre reparos concluídos'],
-            ['value' => Metrics::duration($s['avg_waiting']), 'label' => 'Espera média', 'icon' => 'ti ti-hourglass-empty', 'tone' => 'light', 'meta' => 'Tempo médio em status pendente'],
-            ['value' => Metrics::duration($s['avg_tma']), 'label' => 'TMA', 'icon' => 'ti ti-clock-hour-4', 'tone' => 'pink', 'meta' => 'Tempo médio de atuação registrada'],
+            ['value' => Metrics::duration($s['avg_tto']), 'label' => 'TTO médio', 'icon' => 'ti ti-user-check', 'tone' => 'indigo', 'meta' => 'Tempo até assumir o ticket', 'tooltip' => 'Tempo médio até que o ticket seja assumido/tratado.'],
+            ['value' => Metrics::duration($s['avg_mttr']), 'label' => 'MTTR', 'icon' => 'ti ti-tool', 'tone' => 'purple', 'meta' => 'Tempo médio de reparo', 'tooltip' => 'Tempo médio até restaurar o serviço após a falha.'],
+            ['value' => Metrics::duration($s['p50_mttr']), 'label' => 'P50 solução', 'icon' => 'ti ti-clock-hour-4', 'tone' => 'teal', 'meta' => 'Mediana do tempo até solução', 'tooltip' => '50% dos tickets resolvidos ficaram abaixo deste tempo.'],
+            ['value' => Metrics::duration($s['p90_mttr']), 'label' => 'P90 solução', 'icon' => 'ti ti-chart-line', 'tone' => 'teal', 'meta' => '90% dos tickets resolvidos abaixo deste tempo', 'tooltip' => 'Faixa de desempenho operacional nos casos mais demorados.'],
+            ['value' => Metrics::duration($s['p95_mttr']), 'label' => 'P95 solução', 'icon' => 'ti ti-chart-line', 'tone' => 'teal', 'meta' => '95% dos tickets resolvidos abaixo deste tempo', 'tooltip' => 'Destaca a cauda longa dos tickets resolvidos.'],
+            ['value' => Metrics::duration($s['mtbf']), 'label' => 'MTBF', 'icon' => 'ti ti-activity', 'tone' => 'blue', 'meta' => 'Tempo médio entre falhas por host', 'tooltip' => 'Tempo médio entre o fim de uma ocorrência e a próxima falha do mesmo host.'],
+            ['value' => Metrics::duration($s['mtbr']), 'label' => 'MTBR', 'icon' => 'ti ti-arrows-exchange', 'tone' => 'slate', 'meta' => 'Tempo médio entre reparos concluídos', 'tooltip' => 'Intervalo médio entre reparos sucessivos do mesmo host.'],
+            ['value' => Metrics::duration($s['avg_waiting']), 'label' => 'Espera média', 'icon' => 'ti ti-hourglass-empty', 'tone' => 'light', 'meta' => 'Tempo médio em status pendente', 'tooltip' => 'Mede quanto tempo os tickets permanecem aguardando.'],
+            ['value' => Metrics::duration($s['avg_tma']), 'label' => 'TMA', 'icon' => 'ti ti-clock-hour-4', 'tone' => 'pink', 'meta' => 'Tempo médio de atuação registrada', 'tooltip' => 'Tempo médio de trabalho/atuação lançado no ticket.'],
         ];
     }
 
     private static function qualityCards(array $s): array
     {
         return [
-            ['value' => Metrics::percent($s['coverage_category_pct']), 'label' => 'Categoria preenchida', 'icon' => 'ti ti-category', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_categories']) . ' tickets classificados'],
-            ['value' => Metrics::percent($s['coverage_item_pct']), 'label' => 'Ativo vinculado', 'icon' => 'ti ti-devices', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_items']) . ' tickets com item'],
-            ['value' => Metrics::percent($s['coverage_requester_pct']), 'label' => 'Requester preenchido', 'icon' => 'ti ti-user-circle', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_requester_groups']) . ' tickets com grupo cliente'],
-            ['value' => Metrics::percent($s['coverage_assign_pct']), 'label' => 'Assigned to preenchido', 'icon' => 'ti ti-users-group', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_assign_groups']) . ' tickets com grupo NOC'],
-            ['value' => Metrics::percent($s['rca_coverage_pct']), 'label' => 'Tickets marcados para IA/RCA', 'icon' => 'ti ti-brain', 'tone' => 'success', 'meta' => self::compactNumber((int) $s['ai_tagged']) . ' tickets etiquetados'],
-            ['value' => Metrics::percent($s['rca_complete_pct']), 'label' => 'RCA completa', 'icon' => 'ti ti-report-search', 'tone' => 'success', 'meta' => self::compactNumber((int) $s['rca_complete']) . ' tickets com diagnóstico + causa + solução'],
+            ['value' => Metrics::percent($s['coverage_category_pct']), 'label' => 'Categoria preenchida', 'icon' => 'ti ti-category', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_categories']) . ' tickets classificados', 'tooltip' => 'Percentual de tickets com categoria definida.'],
+            ['value' => Metrics::percent($s['coverage_item_pct']), 'label' => 'Ativo vinculado', 'icon' => 'ti ti-devices', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_items']) . ' tickets com item', 'tooltip' => 'Percentual de tickets que possuem ativo/item associado.'],
+            ['value' => Metrics::percent($s['coverage_requester_pct']), 'label' => 'Requester preenchido', 'icon' => 'ti ti-user-circle', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_requester_groups']) . ' tickets com grupo cliente', 'tooltip' => 'Percentual de tickets com grupo solicitante preenchido.'],
+            ['value' => Metrics::percent($s['coverage_assign_pct']), 'label' => 'Assigned to preenchido', 'icon' => 'ti ti-users-group', 'tone' => 'gray', 'meta' => self::compactNumber((int) $s['with_assign_groups']) . ' tickets com grupo NOC', 'tooltip' => 'Percentual de tickets com grupo de atendimento / NOC vinculado.'],
+            ['value' => Metrics::percent($s['rca_coverage_pct']), 'label' => 'Tickets marcados para IA/RCA', 'icon' => 'ti ti-brain', 'tone' => 'success', 'meta' => self::compactNumber((int) $s['ai_tagged']) . ' tickets etiquetados', 'tooltip' => 'Cobertura de follow-ups etiquetados para análise, IA ou RCA.'],
+            ['value' => Metrics::percent($s['rca_complete_pct']), 'label' => 'RCA completa', 'icon' => 'ti ti-report-search', 'tone' => 'success', 'meta' => self::compactNumber((int) $s['rca_complete']) . ' tickets com diagnóstico + causa + solução', 'tooltip' => 'Tickets com registro mínimo estruturado de RCA.'],
+        ];
+    }
+
+    private static function realtimeCards(array $s): array
+    {
+        return [
+            ['value' => self::compactNumber((int) $s['open']), 'label' => 'Abertos agora', 'icon' => 'ti ti-loader-2', 'tone' => 'cyan', 'meta' => 'Estoque operacional atual no recorte', 'tooltip' => 'Tickets abertos, atribuídos, planejados ou pendentes.'],
+            ['value' => self::compactNumber((int) $s['incoming']), 'label' => 'Novos', 'icon' => 'ti ti-bell-ringing', 'tone' => 'yellow', 'meta' => 'Aguardando início de tratativa', 'tooltip' => 'Tickets recém-criados, ainda não assumidos.'],
+            ['value' => self::compactNumber((int) $s['assigned']), 'label' => 'Atribuídos', 'icon' => 'ti ti-user-check', 'tone' => 'indigo', 'meta' => 'Já direcionados para atendimento', 'tooltip' => 'Tickets atualmente atribuídos a grupos ou equipes.'],
+            ['value' => self::compactNumber((int) $s['pending']), 'label' => 'Pendentes', 'icon' => 'ti ti-pause', 'tone' => 'orange', 'meta' => 'Em espera/aguardando ação', 'tooltip' => 'Tickets em situação pendente ou aguardando insumo externo.'],
+            ['value' => self::compactNumber((int) $s['open_clients']), 'label' => 'Clientes impactados', 'icon' => 'ti ti-users-group', 'tone' => 'blue', 'meta' => 'Clientes com incidente aberto', 'tooltip' => 'Número de clientes distintos com ao menos um ticket aberto no recorte.'],
+            ['value' => self::compactNumber((int) $s['open_hosts']), 'label' => 'Hosts impactados', 'icon' => 'ti ti-server-2', 'tone' => 'purple', 'meta' => 'Ativos/hosts com incidente aberto', 'tooltip' => 'Número de hosts distintos com ao menos um ticket aberto.'],
         ];
     }
 
@@ -236,9 +382,15 @@ final class Dashboard extends CommonDBTM
             $icon  = htmlescape((string) ($metric['icon'] ?? 'ti ti-chart-bar'));
             $tone  = htmlescape((string) ($metric['tone'] ?? 'light'));
             $meta  = htmlescape((string) ($metric['meta'] ?? ''));
+            $tooltip = htmlescape((string) ($metric['tooltip'] ?? ''));
 
             $html .= "<div class='iosindicators-kpi iosindicators-tone-{$tone}'>";
+            $html .= "<div class='iosindicators-kpi-top'>";
             $html .= "<div class='iosindicators-kpi-icon'><i class='{$icon}'></i></div>";
+            if ($tooltip !== '') {
+                $html .= "<button type='button' class='iosindicators-info-btn' data-bs-toggle='tooltip' data-bs-placement='top' title='{$tooltip}' aria-label='Informações'><i class='ti ti-info-circle'></i></button>";
+            }
+            $html .= '</div>';
             $html .= "<div class='iosindicators-kpi-value'>{$value}</div>";
             $html .= "<div class='iosindicators-kpi-label'>{$label}</div>";
             if ($meta !== '') {
@@ -250,15 +402,20 @@ final class Dashboard extends CommonDBTM
         return $html;
     }
 
-    private static function renderDistributionCard(string $title, string $subtitle, array $rows, string $icon): string
+    private static function renderDistributionCard(string $title, string $subtitle, array $rows, string $icon, string $tooltip = ''): string
     {
         $html = '<div class="card iosindicators-panel h-100">';
         $html .= '<div class="card-header">';
-        $html .= '<div class="iosindicators-panel-title"><i class="' . htmlescape($icon) . '"></i><div><strong>' . htmlescape($title) . '</strong><div class="text-muted small">' . htmlescape($subtitle) . '</div></div></div>';
-        $html .= '</div><div class="card-body">';
+        $html .= '<div class="iosindicators-panel-title">';
+        $html .= '<i class="' . htmlescape($icon) . '"></i>';
+        $html .= '<div class="flex-grow-1"><strong>' . htmlescape($title) . '</strong><div class="text-muted small">' . htmlescape($subtitle) . '</div></div>';
+        if ($tooltip !== '') {
+            $html .= '<button type="button" class="iosindicators-info-btn is-light" data-bs-toggle="tooltip" data-bs-placement="top" title="' . htmlescape($tooltip) . '"><i class="ti ti-info-circle"></i></button>';
+        }
+        $html .= '</div></div><div class="card-body">';
 
         if ($rows === []) {
-            $html .= '<div class="text-muted">Sem dados suficientes no recorte.</div>';
+            $html .= '<div class="iosindicators-empty-state"><i class="ti ti-database-off"></i><span>Sem dados suficientes no recorte.</span></div>';
         } else {
             foreach ($rows as $row) {
                 $label = htmlescape((string) ($row['label'] ?? ''));
@@ -275,6 +432,60 @@ final class Dashboard extends CommonDBTM
         return $html;
     }
 
+    private static function renderQualityMatrixCard(array $s): string
+    {
+        $rows = [
+            ['Categoria', $s['coverage_category_pct'], $s['with_categories'] . ' tickets'],
+            ['Ativo', $s['coverage_item_pct'], $s['with_items'] . ' tickets'],
+            ['Requester', $s['coverage_requester_pct'], $s['with_requester_groups'] . ' tickets'],
+            ['Assigned/NOC', $s['coverage_assign_pct'], $s['with_assign_groups'] . ' tickets'],
+            ['Estruturado', $s['coverage_structured_pct'], $s['structured_tickets'] . ' tickets'],
+            ['IA/RCA', $s['rca_coverage_pct'], $s['ai_tagged'] . ' tickets'],
+        ];
+
+        $html = '<div class="card iosindicators-panel h-100">';
+        $html .= '<div class="card-header"><div class="iosindicators-panel-title"><i class="ti ti-checklist"></i><div><strong>Matriz de completude</strong><div class="text-muted small">Evolução desejada para saneamento dos tickets.</div></div></div></div>';
+        $html .= '<div class="card-body">';
+        foreach ($rows as [$label, $value, $meta]) {
+            $percent = max(0, min(100, (float) $value));
+            $html .= '<div class="iosindicators-completeness-row">';
+            $html .= '<div class="iosindicators-completeness-head"><span>' . htmlescape((string) $label) . '</span><span>' . Metrics::percent((float) $value) . '</span></div>';
+            $html .= '<div class="progress iosindicators-progress lg"><div class="progress-bar" role="progressbar" style="width: ' . $percent . '%"></div></div>';
+            $html .= '<div class="iosindicators-completeness-meta">' . htmlescape((string) $meta) . '</div>';
+            $html .= '</div>';
+        }
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    private static function renderLatestTicketsCard(array $rows): string
+    {
+        $html = '<div class="card iosindicators-panel h-100">';
+        $html .= '<div class="card-header"><div class="iosindicators-panel-title"><i class="ti ti-clock-hour-4"></i><div><strong>Últimos tickets classificados</strong><div class="text-muted small">Monitoramento das entradas mais recentes no GLPI.</div></div></div></div>';
+        $html .= '<div class="card-body p-0">';
+
+        if ($rows === []) {
+            $html .= '<div class="iosindicators-empty-state p-4"><i class="ti ti-ticket-off"></i><span>Sem tickets para exibir.</span></div>';
+        } else {
+            $html .= '<div class="table-responsive"><table class="table table-hover iosindicators-table mb-0">';
+            $html .= '<thead><tr><th>#</th><th>Data</th><th>Cliente</th><th>Host</th><th>Evento</th><th>Status</th></tr></thead><tbody>';
+            foreach ($rows as $row) {
+                $html .= '<tr>';
+                $html .= '<td><span class="fw-semibold">' . (int) ($row['id'] ?? 0) . '</span></td>';
+                $html .= '<td>' . htmlescape((string) ($row['date'] ?? '—')) . '</td>';
+                $html .= '<td>' . htmlescape((string) ($row['client'] ?? '—')) . '</td>';
+                $html .= '<td><span class="text-nowrap">' . htmlescape((string) ($row['host'] ?? '—')) . '</span></td>';
+                $html .= '<td><div class="fw-medium">' . htmlescape((string) ($row['event'] ?? '—')) . '</div><div class="small text-muted">' . htmlescape((string) ($row['title'] ?? '')) . '</div></td>';
+                $html .= '<td><span class="badge text-bg-' . htmlescape((string) ($row['status_class'] ?? 'light')) . '">' . htmlescape((string) ($row['status'] ?? '—')) . '</span></td>';
+                $html .= '</tr>';
+            }
+            $html .= '</tbody></table></div>';
+        }
+
+        $html .= '</div></div>';
+        return $html;
+    }
+
     private static function renderDefinitionCard(): string
     {
         $html = '<div class="card iosindicators-panel h-100">';
@@ -284,7 +495,7 @@ final class Dashboard extends CommonDBTM
         $rows = [
             ['TTO', 'Tempo médio até o ticket ser assumido.'],
             ['MTTR', 'Tempo médio para reparar/restabelecer o serviço.'],
-            ['MTBF', 'Tempo médio entre a normalização de um host e a abertura da próxima falha do mesmo host.'],
+            ['MTBF', 'Tempo médio entre o fim de uma ocorrência e a abertura da próxima falha do mesmo host.'],
             ['MTBR', 'Tempo médio entre reparos concluídos do mesmo host.'],
             ['Disponibilidade', 'Estimativa: MTBF ÷ (MTBF + MTTR).'],
             ['Cobertura estruturada', 'Tickets com categoria, item, requester e assigned to preenchidos.'],
@@ -294,6 +505,19 @@ final class Dashboard extends CommonDBTM
         }
         $html .= '</tbody></table>';
         $html .= '</div></div>';
+        return $html;
+    }
+
+    private static function renderHero(string $title, string $subtitle, array $chips): string
+    {
+        $html = '<div class="iosindicators-hero card mb-4"><div class="card-body">';
+        $html .= '<div class="d-flex flex-column flex-xl-row gap-3 align-items-xl-center justify-content-between">';
+        $html .= '<div><div class="iosindicators-hero-eyebrow">IOS Indicators</div><h3 class="mb-2">' . htmlescape($title) . '</h3><p class="mb-0 text-muted">' . htmlescape($subtitle) . '</p></div>';
+        $html .= '<div class="iosindicators-chip-group">';
+        foreach ($chips as $chip) {
+            $html .= '<div class="iosindicators-chip"><span class="iosindicators-chip-label">' . htmlescape((string) $chip['label']) . '</span><strong>' . htmlescape((string) $chip['value']) . '</strong></div>';
+        }
+        $html .= '</div></div></div></div>';
         return $html;
     }
 

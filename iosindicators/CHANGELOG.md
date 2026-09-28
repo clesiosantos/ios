@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+- Dashboard reorganizado em abas: **Visão executiva**, **Velocidade operacional**, **Qualidade do dado** e **Tempo Real**.
+- Nova navegação por abas com persistência da aba ativa entre recarregamentos da página.
+- Layout fluido e responsivo com cards modernos, hero panel, grades adaptativas e painéis analíticos.
+- Tooltips ricos via mouse over para explicar KPIs, painéis e distribuições.
+- Nova aba **Tempo Real** com foco em tickets ainda abertos, clientes impactados, hosts impactados, severidade ativa e últimos tickets classificados.
+- Melhor leitura visual das distribuições com barras, badges e tabela operacional.
+- CSS carregado explicitamente no dashboard com versionamento para minimizar efeito de cache.
+- Melhorias no parser do conteúdo do ticket para extrair **Host**, **Evento** e **Severity** com mais precisão.
+- Ajustados rótulos amigáveis para tipos de ativo e eventos mais comuns.
+
 ## 0.3.0
 - Novo dashboard executivo e operacional, com organização em blocos de visão executiva, velocidade operacional, qualidade do dado e distribuição analítica.
 - Novos indicadores de confiabilidade e manutenção: MTBF, MTBR, disponibilidade estimada, P50, P90 e P95 do tempo até solução.
