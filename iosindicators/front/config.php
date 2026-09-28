@@ -1,6 +1,7 @@
 <?php
 
 use GlpiPlugin\Iosindicators\AiRca;
+use GlpiPlugin\Iosindicators\AiRcaHistory;
 use GlpiPlugin\Iosindicators\Classifier;
 use GlpiPlugin\Iosindicators\Settings;
 
@@ -9,87 +10,7 @@ include(__DIR__ . '/../../../inc/includes.php');
 Session::checkRight('config', UPDATE);
 Plugin::load('iosindicators');
 
-/**
- * Retorna o maior ID atual de task para delimitar exatamente quais tasks
- * foram criadas durante uma execução manual da IA/RCA.
- */
-function iosindicators_last_task_id(): int
-{
-    global $DB;
-
-    if (!$DB->tableExists('glpi_tickettasks')) {
-        return 0;
-    }
-
-    try {
-        $iterator = $DB->request([
-            'SELECT' => ['id'],
-            'FROM' => 'glpi_tickettasks',
-            'ORDER' => ['id DESC'],
-            'LIMIT' => 1,
-        ]);
-
-        foreach ($iterator as $row) {
-            return (int) ($row['id'] ?? 0);
-        }
-    } catch (Throwable $e) {
-        return 0;
-    }
-
-    return 0;
-}
-
-/**
- * Lista apenas as tasks IA/RCA criadas depois do ID informado.
- * Isso evita confundir tasks antigas com as criadas pela execução atual.
- */
-function iosindicators_new_ai_rca_tasks(int $afterTaskId): array
-{
-    global $DB;
-
-    if (!$DB->tableExists('glpi_tickettasks')) {
-        return [];
-    }
-
-    $tag = trim((string) Settings::get('ai_task_tag', '[IA-RCA]'));
-    if ($tag === '') {
-        $tag = '[IA-RCA]';
-    }
-
-    $processed = [];
-
-    try {
-        $iterator = $DB->request([
-            'SELECT' => ['id', 'tickets_id', 'content'],
-            'FROM' => 'glpi_tickettasks',
-            'WHERE' => [
-                ['id' => ['>', $afterTaskId]],
-            ],
-            'ORDER' => ['id ASC'],
-            'LIMIT' => 100,
-        ]);
-
-        foreach ($iterator as $row) {
-            $content = html_entity_decode(strip_tags((string) ($row['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            if (mb_stripos($content, $tag) === false && mb_stripos($content, '[IOS-AI-RCA-V1]') === false) {
-                continue;
-            }
-
-            $processed[] = [
-                'ticket_id' => (int) ($row['tickets_id'] ?? 0),
-                'task_id' => (int) ($row['id'] ?? 0),
-            ];
-        }
-    } catch (Throwable $e) {
-        return [];
-    }
-
-    return $processed;
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // GLPI 11 valida o token CSRF no CheckCsrfListener antes de carregar
-    // este arquivo legado. Revalidar aqui consumiria o mesmo token duas vezes.
     Settings::save($_POST);
 
     if (isset($_POST['run_classifier_now'])) {
@@ -104,37 +25,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result['cursor']
         ), true, $result['errors'] > 0 ? WARNING : INFO);
     } elseif (isset($_POST['run_ai_rca_now'])) {
-        $beforeTaskId = iosindicators_last_task_id();
-        $result = AiRca::runBatch();
-        $processed = iosindicators_new_ai_rca_tasks($beforeTaskId);
+        $result = AiRca::runBatch(null, 'manual');
 
         $message = sprintf(
-            'IA/RCA executada: lidos=%d, elegíveis=%d, tasks criadas=%d, já analisados=%d, ignorados=%d, erros=%d.',
+            'IA/RCA executada: lidos=%d, elegíveis=%d, tasks criadas=%d, já analisados=%d, cooldown=%d, ignorados=%d, erros=%d.',
             $result['read'],
             $result['eligible'],
             $result['created'],
             $result['already_analyzed'],
+            $result['deferred'],
             $result['ignored'],
             $result['errors']
         );
 
-        if ($processed !== []) {
+        if (!empty($result['processed'])) {
             $items = [];
-            foreach ($processed as $item) {
+            foreach ($result['processed'] as $item) {
                 $items[] = sprintf('Ticket #%d → Task #%d', $item['ticket_id'], $item['task_id']);
             }
             $message .= ' Processados: ' . implode(' | ', $items) . '.';
-        } elseif ((int) $result['created'] > 0) {
-            $message .= ' Houve criação de task IA/RCA, porém não foi possível recuperar a lista de IDs desta execução.';
-        } else {
-            $message .= ' Nenhum ticket novo foi processado nesta execução.';
         }
 
-        Session::addMessageAfterRedirect(
-            $message,
-            true,
-            $result['errors'] > 0 ? WARNING : INFO
-        );
+        if (!empty($result['failures'])) {
+            $items = [];
+            foreach (array_slice($result['failures'], 0, 10) as $failure) {
+                $items[] = sprintf(
+                    'Ticket #%d [%s%s]: %s',
+                    $failure['ticket_id'],
+                    $failure['status'],
+                    !empty($failure['http_status']) ? '/HTTP ' . $failure['http_status'] : '',
+                    mb_substr((string) $failure['message'], 0, 220)
+                );
+            }
+            $message .= ' Falhas: ' . implode(' | ', $items) . '.';
+        }
+
+        Session::addMessageAfterRedirect($message, true, $result['errors'] > 0 ? WARNING : INFO);
     } elseif (isset($_POST['reset_classifier_cursor'])) {
         Session::addMessageAfterRedirect(__('Cursor do classificador reiniciado. Na próxima execução o histórico será reavaliado.', 'iosindicators'), true, INFO);
     } else {
@@ -146,6 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $config = Settings::all();
 $hasGeminiKey = AiRca::hasApiKey();
+$history = AiRcaHistory::recent(100);
+$historySummary = AiRcaHistory::summary(1000);
 
 Html::header(
     __('IOS - Indicadores de Incidentes', 'iosindicators'),
@@ -154,7 +82,7 @@ Html::header(
     'plugins'
 );
 
-echo '<div class="container py-3" style="max-width: 1150px">';
+echo '<div class="container py-3" style="max-width: 1250px">';
 
 echo '<div class="card mb-3"><div class="card-header"><strong>Configuração dos Indicadores</strong></div><div class="card-body">';
 echo '<form method="post">';
@@ -176,51 +104,58 @@ foreach ($options as $value => $label) {
     echo '<option value="' . htmlescape($value) . '"' . $selected . '>' . htmlescape($label) . '</option>';
 }
 echo '</select></div>';
-echo '<div class="col-12"><div class="form-check form-switch">';
-echo '<input class="form-check-input" type="checkbox" name="show_only_incidents" id="show_only_incidents"' . ((int)$config['show_only_incidents'] === 1 ? ' checked' : '') . '>';
-echo '<label class="form-check-label" for="show_only_incidents">Considerar somente tickets do tipo Incidente</label>';
-echo '</div></div>';
+echo '<div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="show_only_incidents" id="show_only_incidents"' . ((int)$config['show_only_incidents'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="show_only_incidents">Considerar somente tickets do tipo Incidente</label></div></div>';
 echo '</div>';
 
-echo '<hr class="my-4">';
-echo '<h3 class="h4">Classificador automático GLPI</h3>';
-echo '<p class="text-muted">Usa somente os dados já recebidos no ticket. Não consulta nem altera a API do Zabbix.</p>';
-
+echo '<hr class="my-4"><h3 class="h4">Classificador automático GLPI</h3><p class="text-muted">Usa somente os dados já recebidos no ticket. Não consulta nem altera a API do Zabbix.</p>';
 echo '<div class="row g-3">';
 echo '<div class="col-md-3"><label class="form-label">Categoria raiz</label><input class="form-control" type="text" name="classifier_root_category" value="' . htmlescape((string)$config['classifier_root_category']) . '"></div>';
-echo '<div class="col-md-3"><label class="form-label">Grupo NOC raiz</label><input class="form-control" type="text" name="classifier_noc_root_group" value="' . htmlescape((string)$config['classifier_noc_root_group']) . '"><div class="form-text">Ex.: NOC</div></div>';
+echo '<div class="col-md-3"><label class="form-label">Grupo NOC raiz</label><input class="form-control" type="text" name="classifier_noc_root_group" value="' . htmlescape((string)$config['classifier_noc_root_group']) . '"></div>';
 echo '<div class="col-md-3"><label class="form-label">Tickets por lote</label><input class="form-control" type="number" min="1" max="1000" name="classifier_batch_size" value="' . (int)$config['classifier_batch_size'] . '"></div>';
-echo '<div class="col-md-3"><label class="form-label">Cursor atual</label><input class="form-control" type="text" readonly value="#' . (int)$config['classifier_cursor_id'] . '"><div class="form-text">Último ticket avaliado.</div></div>';
-
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="classifier_enabled" id="classifier_enabled"' . ((int)$config['classifier_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="classifier_enabled">Habilitar ação automática do classificador</label></div></div>';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="classifier_immediate" id="classifier_immediate"' . ((int)$config['classifier_immediate'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="classifier_immediate">Classificar tickets novos imediatamente</label></div></div>';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="classifier_create_categories" id="classifier_create_categories"' . ((int)$config['classifier_create_categories'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="classifier_create_categories">Criar/associar categorias automaticamente</label></div></div>';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="classifier_create_hosts" id="classifier_create_hosts"' . ((int)$config['classifier_create_hosts'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="classifier_create_hosts">Criar/associar ativo conforme o tipo do host</label></div></div>';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="classifier_assign_requester" id="classifier_assign_requester"' . ((int)$config['classifier_assign_requester'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="classifier_assign_requester">Adicionar CLIENTE-XX como grupo Requester</label><div class="form-text">Evita criar usuários fictícios; o cliente é representado como grupo solicitante.</div></div></div>';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="classifier_assign_noc" id="classifier_assign_noc"' . ((int)$config['classifier_assign_noc'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="classifier_assign_noc">Atribuir ao subgrupo NOC pelo tipo de equipamento</label></div></div>';
-echo '<div class="col-12"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="classifier_overwrite_category" id="classifier_overwrite_category"' . ((int)$config['classifier_overwrite_category'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="classifier_overwrite_category">Sobrescrever categoria existente</label><div class="form-text">Deixe desligado para preservar classificações manuais.</div></div></div>';
+echo '<div class="col-md-3"><label class="form-label">Cursor atual</label><input class="form-control" type="text" readonly value="#' . (int)$config['classifier_cursor_id'] . '"></div>';
+foreach ([
+    'classifier_enabled' => 'Habilitar ação automática do classificador',
+    'classifier_immediate' => 'Classificar tickets novos imediatamente',
+    'classifier_create_categories' => 'Criar/associar categorias automaticamente',
+    'classifier_create_hosts' => 'Criar/associar ativo conforme o tipo do host',
+    'classifier_assign_requester' => 'Adicionar CLIENTE-XX como grupo Requester',
+    'classifier_assign_noc' => 'Atribuir ao subgrupo NOC pelo tipo de equipamento',
+    'classifier_overwrite_category' => 'Sobrescrever categoria existente',
+] as $key => $label) {
+    echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="' . htmlescape($key) . '" id="' . htmlescape($key) . '"' . ((int)$config[$key] === 1 ? ' checked' : '') . '><label class="form-check-label" for="' . htmlescape($key) . '">' . htmlescape($label) . '</label></div></div>';
+}
 echo '</div>';
-
-echo '<div class="alert alert-info mt-3">O classificador reconhece tickets abertos e solucionados, extrai <strong>CLIENTE</strong>, <strong>host</strong>, <strong>tipo de equipamento</strong> e <strong>evento</strong>, cria os atores e associa o ativo. Tickets Solved/Closed também podem ser enriquecidos; o status não é alterado.</div>';
 
 echo '<hr class="my-4">';
-echo '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">';
-echo '<div><h3 class="h4 mb-1">IA / RCA com Gemini</h3><p class="text-muted mb-0">Analisa tickets solucionados/fechados, gera RCA estruturada e estima esforço técnico sem alterar o actiontime real.</p></div>';
-echo '<span class="badge ' . ($hasGeminiKey ? 'bg-success' : 'bg-warning text-dark') . '">' . ($hasGeminiKey ? 'GEMINI_API_KEY disponível' : 'GEMINI_API_KEY não configurada') . '</span>';
-echo '</div>';
+echo '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2"><div><h3 class="h4 mb-1">IA / RCA com Gemini</h3><p class="text-muted mb-0">Gera RCA estruturada, registra sucesso/falha e estima esforço sem alterar o actiontime real.</p></div>';
+echo '<span class="badge ' . ($hasGeminiKey ? 'bg-success' : 'bg-warning text-dark') . '">' . ($hasGeminiKey ? 'GEMINI_API_KEY disponível' : 'GEMINI_API_KEY não configurada') . '</span></div>';
+
+echo '<div class="alert alert-info mt-3"><strong>Modo econômico:</strong> recomendamos <code>gemini-3.5-flash-lite</code> para este fluxo de análise estruturada em alto volume. A rotina também aplica intervalo entre chamadas e cooldown em erros 429/503 para reduzir consumo e evitar tempestade de requisições.</div>';
 
 echo '<div class="row g-3 mt-1">';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_enabled" id="ai_rca_enabled"' . ((int)$config['ai_rca_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_enabled">Habilitar ação automática IOS - AI RCA</label><div class="form-text">A ação procura tickets Solved/Closed sem task [IA-RCA].</div></div></div>';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_enabled" id="ai_rca_enabled"' . ((int)$config['ai_rca_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_enabled">Habilitar ação automática IOS - AI RCA</label><div class="form-text">Procura tickets Solved/Closed sem task [IA-RCA].</div></div></div>';
 echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_redact_sensitive" id="ai_rca_redact_sensitive"' . ((int)$config['ai_rca_redact_sensitive'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_redact_sensitive">Redigir e-mails, telefones e CPF antes do envio</label></div></div>';
-echo '<div class="col-md-4"><label class="form-label">Modelo Gemini</label><input class="form-control" type="text" name="ai_rca_model" value="' . htmlescape((string)$config['ai_rca_model']) . '"><div class="form-text">Padrão atual: gemini-3.8-flash</div></div>';
+
+echo '<div class="col-md-4"><label class="form-label">Modelo Gemini</label><select class="form-select" name="ai_rca_model">';
+$modelOptions = [
+    'gemini-3.5-flash-lite' => 'Gemini 3.5 Flash-Lite — econômico / recomendado',
+    'gemini-3.8-flash' => 'Gemini 3.8 Flash — maior capacidade',
+];
+foreach ($modelOptions as $value => $label) {
+    $selected = ((string)$config['ai_rca_model'] === $value) ? ' selected' : '';
+    echo '<option value="' . htmlescape($value) . '"' . $selected . '>' . htmlescape($label) . '</option>';
+}
+echo '</select></div>';
 echo '<div class="col-md-2"><label class="form-label">Tasks por lote</label><input class="form-control" type="number" min="1" max="50" name="ai_rca_batch_size" value="' . (int)$config['ai_rca_batch_size'] . '"></div>';
-echo '<div class="col-md-2"><label class="form-label">Janela de busca</label><input class="form-control" type="number" min="1" max="5000" name="ai_rca_scan_limit" value="' . (int)$config['ai_rca_scan_limit'] . '"><div class="form-text">Últimos resolvidos.</div></div>';
-echo '<div class="col-md-2"><label class="form-label">Contexto máx.</label><input class="form-control" type="number" min="4000" max="50000" name="ai_rca_max_context_chars" value="' . (int)$config['ai_rca_max_context_chars'] . '"><div class="form-text">Caracteres.</div></div>';
+echo '<div class="col-md-2"><label class="form-label">Janela de busca</label><input class="form-control" type="number" min="1" max="5000" name="ai_rca_scan_limit" value="' . (int)$config['ai_rca_scan_limit'] . '"></div>';
+echo '<div class="col-md-2"><label class="form-label">Contexto máx.</label><input class="form-control" type="number" min="4000" max="50000" name="ai_rca_max_context_chars" value="' . (int)$config['ai_rca_max_context_chars'] . '"><div class="form-text">Caracteres enviados.</div></div>';
 echo '<div class="col-md-2"><label class="form-label">Timeout</label><input class="form-control" type="number" min="10" max="120" name="ai_rca_timeout_seconds" value="' . (int)$config['ai_rca_timeout_seconds'] . '"><div class="form-text">Segundos.</div></div>';
+echo '<div class="col-md-3"><label class="form-label">Intervalo entre chamadas</label><div class="input-group"><input class="form-control" type="number" min="0" max="10000" step="100" name="ai_rca_request_delay_ms" value="' . (int)$config['ai_rca_request_delay_ms'] . '"><span class="input-group-text">ms</span></div><div class="form-text">Recomendado: 1500 ms.</div></div>';
+echo '<div class="col-md-3"><label class="form-label">Cooldown após falha</label><div class="input-group"><input class="form-control" type="number" min="1" max="1440" name="ai_rca_failure_cooldown_minutes" value="' . (int)$config['ai_rca_failure_cooldown_minutes'] . '"><span class="input-group-text">min</span></div><div class="form-text">Evita repetir ticket com 429/503 em toda execução.</div></div>';
 echo '</div>';
 
-echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong> não é salvo no banco nem no GitHub. No Docker atual o host <code>/opt/glpi/glpi11/config</code> está montado em <code>/var/glpi/config</code>. O plugin procura primeiro <code>GEMINI_API_KEY</code> no ambiente e depois em <code>/var/glpi/config/iosindicators.env</code> ou <code>/var/glpi/config/.env</code>.</div>';
-echo '<div class="alert alert-secondary"><strong>Tempo IA:</strong> a task criada contém <code>Tempo estimado IA (segundos)</code>, porém o campo <code>actiontime</code> da task fica em zero. O dashboard usa a estimativa separadamente para não contaminar o tempo real de trabalho do GLPI.</div>';
+echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong> a chave continua fora do banco/GitHub. O plugin usa o volume <code>/var/glpi/config</code> montado a partir de <code>/opt/glpi/glpi11/config</code>.</div>';
+echo '<div class="alert alert-secondary"><strong>Histórico:</strong> cada sucesso, falha HTTP, timeout e lote executado é gravado em <code>' . htmlescape(AiRcaHistory::filePathForDisplay()) . '</code>. Tasks existentes também são retroalimentadas no histórico sem nova chamada à Gemini.</div>';
 
 echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
 echo '<div class="d-flex flex-wrap gap-2">';
@@ -228,12 +163,67 @@ echo '<button type="submit" class="btn btn-primary"><i class="ti ti-device-flopp
 echo '<button type="submit" name="run_classifier_now" value="1" class="btn btn-success"><i class="ti ti-player-play"></i> Processar classificador</button>';
 echo '<button type="submit" name="run_ai_rca_now" value="1" class="btn btn-info"' . (!$hasGeminiKey ? ' disabled' : '') . '><i class="ti ti-brain"></i> Processar IA/RCA agora</button>';
 echo '<button type="submit" name="reset_classifier_cursor" value="1" class="btn btn-outline-danger" onclick="return confirm(\'Reiniciar o cursor fará o histórico ser reavaliado. Continuar?\')"><i class="ti ti-refresh"></i> Reiniciar processamento histórico</button>';
-echo '</div>';
-echo '</form></div></div>';
+echo '</div></form></div></div>';
 
-echo '<div class="card mb-3"><div class="card-header"><strong>Mapa de equipamentos / NOC</strong></div><div class="card-body">';
-echo '<p class="text-muted">Mapeamento baseado nos códigos encontrados na amostra atual de tickets. Códigos desconhecidos vão para <code>NOC &gt; Outros</code> e são criados como Computer até revisão.</p>';
-echo '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Código</th><th>Interpretação</th><th>Ativo GLPI</th><th>Assigned to</th></tr></thead><tbody>';
+// Histórico IA/RCA.
+echo '<div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center"><strong>Histórico IA/RCA</strong><span class="text-muted small">Últimos 100 registros</span></div><div class="card-body">';
+echo '<div class="d-flex flex-wrap gap-2 mb-3">';
+$badges = [
+    ['Sucessos', (int)$historySummary['success'], 'bg-success'],
+    ['Já existentes', (int)$historySummary['existing'], 'bg-secondary'],
+    ['Erros', (int)$historySummary['error'], 'bg-danger'],
+    ['429 Rate Limit', (int)$historySummary['rate_limited'], 'bg-warning text-dark'],
+    ['503 indisponível', (int)$historySummary['service_unavailable'], 'bg-warning text-dark'],
+    ['Lotes', (int)$historySummary['batch'], 'bg-info text-dark'],
+];
+foreach ($badges as [$label, $count, $class]) {
+    echo '<span class="badge ' . $class . '">' . htmlescape($label) . ': ' . $count . '</span>';
+}
+echo '</div>';
+
+if ($history === []) {
+    echo '<div class="alert alert-light border mb-0">Ainda não há registros persistentes. Eles serão criados nas próximas execuções; tickets com task [IA-RCA] já existente serão incorporados ao histórico conforme forem encontrados.</div>';
+} else {
+    echo '<div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr><th>Data</th><th>Ticket</th><th>Task</th><th>Resultado</th><th>Origem</th><th>Modelo</th><th>Duração</th><th>Estimativa</th><th>Confiança</th><th>Tokens</th><th>Mensagem</th></tr></thead><tbody>';
+    $statusLabels = [
+        'success' => ['Sucesso', 'bg-success'],
+        'existing' => ['Já analisado', 'bg-secondary'],
+        'error' => ['Erro', 'bg-danger'],
+        'rate_limited' => ['429 Rate limit', 'bg-warning text-dark'],
+        'service_unavailable' => ['503 indisponível', 'bg-warning text-dark'],
+    ];
+    foreach ($history as $row) {
+        $type = (string)($row['type'] ?? 'ticket');
+        $status = (string)($row['status'] ?? 'info');
+        [$statusLabel, $statusClass] = $statusLabels[$status] ?? [$status, 'bg-light text-dark'];
+        $ticketId = (int)($row['ticket_id'] ?? 0);
+        $taskId = (int)($row['task_id'] ?? 0);
+        $duration = (int)($row['duration_ms'] ?? 0);
+        $tokens = $row['total_tokens'] ?? null;
+        echo '<tr>';
+        echo '<td class="text-nowrap">' . htmlescape((string)($row['timestamp'] ?? '—')) . '</td>';
+        if ($type === 'batch') {
+            echo '<td colspan="2"><span class="badge bg-info text-dark">LOTE</span></td>';
+        } else {
+            echo '<td>' . ($ticketId > 0 ? '<a href="' . htmlescape($CFG_GLPI['root_doc'] . '/front/ticket.form.php?id=' . $ticketId) . '">#' . $ticketId . '</a>' : '—') . '</td>';
+            echo '<td>' . ($taskId > 0 ? '#' . $taskId : '—') . '</td>';
+        }
+        echo '<td><span class="badge ' . $statusClass . '">' . htmlescape($statusLabel) . '</span></td>';
+        echo '<td>' . htmlescape((string)($row['source'] ?? '—')) . '</td>';
+        echo '<td><code>' . htmlescape((string)($row['model'] ?? '—')) . '</code></td>';
+        echo '<td>' . ($duration > 0 ? number_format($duration / 1000, 2, ',', '.') . 's' : '—') . '</td>';
+        echo '<td>' . (isset($row['estimated_minutes']) && $row['estimated_minutes'] !== null ? (int)$row['estimated_minutes'] . ' min' : '—') . '</td>';
+        echo '<td>' . (isset($row['confidence']) && $row['confidence'] !== null ? (int)$row['confidence'] . '%' : '—') . '</td>';
+        echo '<td>' . ($tokens !== null ? number_format((int)$tokens, 0, ',', '.') : '—') . '</td>';
+        echo '<td style="max-width:360px;white-space:normal">' . htmlescape((string)($row['message'] ?? '')) . '</td>';
+        echo '</tr>';
+    }
+    echo '</tbody></table></div>';
+}
+echo '</div></div>';
+
+// Mapas atuais.
+echo '<div class="card mb-3"><div class="card-header"><strong>Mapa de equipamentos / NOC</strong></div><div class="card-body"><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Código</th><th>Interpretação</th><th>Ativo GLPI</th><th>Assigned to</th></tr></thead><tbody>';
 $equipmentMap = [
     'SRV' => ['Servidor', 'Computer', 'NOC > Servidores'],
     'DB'  => ['Banco de Dados', 'Computer', 'NOC > Banco de Dados'],
@@ -247,8 +237,7 @@ foreach ($equipmentMap as $code => $values) {
 }
 echo '</tbody></table></div></div></div>';
 
-echo '<div class="card"><div class="card-header"><strong>Mapa inicial de categorias</strong></div><div class="card-body">';
-echo '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Evento</th><th>Categoria</th></tr></thead><tbody>';
+echo '<div class="card"><div class="card-header"><strong>Mapa inicial de categorias</strong></div><div class="card-body"><div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th>Evento</th><th>Categoria</th></tr></thead><tbody>';
 $map = [
     'cpu_high' => 'Monitoramento > CPU > Utilização alta',
     'memory_high' => 'Monitoramento > Memória > Utilização alta',
