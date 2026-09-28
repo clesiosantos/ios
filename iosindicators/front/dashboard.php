@@ -60,11 +60,14 @@ try {
     echo <<<'HTML'
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  if (window.bootstrap && bootstrap.Tooltip) {
-    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
-      try { new bootstrap.Tooltip(el, {container: 'body'}); } catch (e) {}
+  function initTooltips(scope) {
+    if (!(window.bootstrap && bootstrap.Tooltip)) return;
+    (scope || document).querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+      try { bootstrap.Tooltip.getOrCreateInstance(el, {container: 'body'}); } catch (e) {}
     });
   }
+
+  initTooltips(document);
 
   var buttons = document.querySelectorAll('#iosindicators-tabs button[data-bs-toggle="tab"]');
   var preferred = window.location.hash ? window.location.hash.substring(1) : localStorage.getItem('iosindicators.activeTab');
@@ -86,6 +89,155 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
+
+  function parseRows(panel) {
+    if (!panel) return [];
+    return Array.from(panel.querySelectorAll('.iosindicators-bar-row')).map(function (row) {
+      var labelEl = row.querySelector('.iosindicators-bar-label');
+      var valueEl = row.querySelector('.iosindicators-bar-value');
+      var label = labelEl ? labelEl.textContent.trim() : '—';
+      var raw = valueEl ? valueEl.textContent.trim() : '0';
+      var countMatch = raw.match(/([0-9][0-9.]*)/);
+      var pctMatch = raw.match(/\(([0-9]+(?:[.,][0-9]+)?)%\)/);
+      var count = countMatch ? parseInt(countMatch[1].replace(/\./g, ''), 10) : 0;
+      var percent = pctMatch ? parseFloat(pctMatch[1].replace(',', '.')) : 0;
+      return {label: label, count: count || 0, percent: percent || 0};
+    });
+  }
+
+  function panelTitle(panel) {
+    var title = panel ? panel.querySelector('.iosindicators-panel-title strong') : null;
+    return title ? title.textContent.trim() : '';
+  }
+
+  function rankingTable(panel, rows, itemLabel) {
+    if (!panel || !rows.length) return;
+    var body = panel.querySelector('.card-body');
+    if (!body) return;
+
+    var html = '<div class="table-responsive"><table class="ios-ranking-table">';
+    html += '<thead><tr><th style="width:42px">#</th><th>' + itemLabel + '</th><th class="text-end">Incidentes</th><th class="text-end">Participação</th></tr></thead><tbody>';
+    rows.forEach(function (row, index) {
+      html += '<tr title="' + row.label.replace(/"/g, '&quot;') + ': ' + row.count + ' incidentes">';
+      html += '<td><span class="ios-rank-pos">' + (index + 1) + '</span></td>';
+      html += '<td><span class="ios-rank-name">' + row.label + '</span></td>';
+      html += '<td class="ios-rank-count">' + row.count + '</td>';
+      html += '<td class="ios-rank-share">' + row.percent.toFixed(1).replace('.', ',') + '%</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    body.innerHTML = html;
+  }
+
+  function buildDonutCard(title, subtitle, rows, colors, centerLabel) {
+    if (!rows || !rows.length) return null;
+    var total = rows.reduce(function (sum, row) { return sum + row.count; }, 0);
+    if (!total) return null;
+
+    var cursor = 0;
+    var gradients = [];
+    rows.forEach(function (row, index) {
+      var pct = (row.count / total) * 100;
+      var next = cursor + pct;
+      gradients.push(colors[index % colors.length] + ' ' + cursor.toFixed(2) + '% ' + next.toFixed(2) + '%');
+      cursor = next;
+    });
+
+    var card = document.createElement('div');
+    card.className = 'card iosindicators-panel ios-donut-card h-100';
+    var legend = rows.map(function (row, index) {
+      var pct = total ? ((row.count / total) * 100) : 0;
+      return '<div class="ios-donut-legend-row" title="' + row.label.replace(/"/g, '&quot;') + ': ' + row.count + '">' +
+        '<span class="ios-donut-dot" style="background:' + colors[index % colors.length] + '"></span>' +
+        '<span class="ios-donut-legend-label">' + row.label + '</span>' +
+        '<span class="ios-donut-legend-value">' + row.count + ' · ' + pct.toFixed(1).replace('.', ',') + '%</span>' +
+      '</div>';
+    }).join('');
+
+    card.innerHTML =
+      '<div class="card-header"><div class="iosindicators-panel-title">' +
+        '<i class="ti ti-chart-donut-3"></i>' +
+        '<div><strong>' + title + '</strong><div class="text-muted small">' + subtitle + '</div></div>' +
+      '</div></div>' +
+      '<div class="card-body">' +
+        '<div class="ios-donut-wrap">' +
+          '<div class="ios-donut" style="background:conic-gradient(' + gradients.join(',') + ')"></div>' +
+          '<div class="ios-donut-center"><strong>' + total + '</strong><span>' + centerLabel + '</span></div>' +
+        '</div>' +
+        '<div class="ios-donut-legend">' + legend + '</div>' +
+      '</div>';
+
+    return card;
+  }
+
+  function modernizeExecutive() {
+    var executive = document.getElementById('tab-executiva');
+    if (!executive || executive.dataset.modernized === '1') return;
+    executive.dataset.modernized = '1';
+
+    var board = executive.querySelector('.row.g-3.mt-1');
+    if (board) {
+      board.classList.add('ios-executive-board');
+      Array.from(board.children).forEach(function (column) {
+        var panel = column.querySelector('.iosindicators-panel');
+        var title = panelTitle(panel);
+
+        if (title.indexOf('Eventos mais frequentes') !== -1) {
+          column.classList.add('ios-exec-wide');
+        } else if (title.indexOf('Clientes com mais incidentes') !== -1) {
+          column.classList.add('ios-exec-narrow');
+          rankingTable(panel, parseRows(panel), 'Cliente');
+        } else if (title.indexOf('Hosts reincidentes') !== -1) {
+          column.classList.add('ios-exec-wide');
+          rankingTable(panel, parseRows(panel), 'Host');
+        } else if (title.indexOf('Distribuição por tipo de ativo') !== -1) {
+          column.classList.add('ios-exec-narrow');
+        } else {
+          column.classList.add('ios-exec-half');
+        }
+      });
+    }
+
+    var velocity = document.getElementById('tab-velocidade');
+    if (!velocity) return;
+
+    var sourcePanels = Array.from(velocity.querySelectorAll('.iosindicators-panel'));
+    var statusPanel = sourcePanels.find(function (panel) { return panelTitle(panel).indexOf('Pipeline de status') !== -1; });
+    var severityPanel = sourcePanels.find(function (panel) { return panelTitle(panel).indexOf('Severidade monitorada') !== -1; });
+
+    var secondary = document.createElement('div');
+    secondary.className = 'ios-exec-secondary-grid';
+
+    var statusDonut = buildDonutCard(
+      'Panorama dos tickets',
+      'Distribuição consolidada por status no período.',
+      parseRows(statusPanel),
+      ['#2563eb', '#10b981', '#64748b', '#f59e0b', '#7c3aed', '#0ea5e9'],
+      'tickets'
+    );
+
+    var severityDonut = buildDonutCard(
+      'Severidade dos incidentes',
+      'Perfil de criticidade extraído dos tickets monitorados.',
+      parseRows(severityPanel),
+      ['#ef4444', '#f59e0b', '#2563eb', '#10b981', '#7c3aed', '#64748b'],
+      'incidentes'
+    );
+
+    if (statusDonut) secondary.appendChild(statusDonut);
+    if (severityDonut) secondary.appendChild(severityDonut);
+    if (secondary.children.length) {
+      if (board && board.parentNode) {
+        board.parentNode.insertBefore(secondary, board.nextSibling);
+      } else {
+        executive.appendChild(secondary);
+      }
+    }
+
+    initTooltips(executive);
+  }
+
+  modernizeExecutive();
 });
 </script>
 HTML;
