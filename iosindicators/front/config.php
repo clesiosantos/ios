@@ -9,7 +9,9 @@ Session::checkRight('config', UPDATE);
 Plugin::load('iosindicators');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    Session::checkCSRF($_POST);
+    // GLPI 11 valida o token CSRF no CheckCsrfListener antes de carregar
+    // este arquivo legado. Revalidar aqui consumiria o mesmo token duas vezes
+    // e resultaria em "The action you have requested is not allowed".
     Settings::save($_POST);
 
     if (isset($_POST['run_classifier_now'])) {
@@ -24,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result['cursor']
         ), true, $result['errors'] > 0 ? WARNING : INFO);
     } elseif (isset($_POST['reset_classifier_cursor'])) {
+        Settings::save(['classifier_cursor_id' => 0] + $_POST);
         Session::addMessageAfterRedirect(__('Cursor do classificador reiniciado. Na próxima execução o histórico será reavaliado.', 'iosindicators'), true, INFO);
     } else {
         Session::addMessageAfterRedirect(__('Configurações salvas.', 'iosindicators'), true, INFO);
