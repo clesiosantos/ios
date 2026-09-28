@@ -2,7 +2,7 @@
 
 Plugin para consolidar indicadores operacionais do ciclo de vida de incidentes no GLPI 11 e preparar o histórico de tratativas para RCA, Post-Mortem e futura Base de Conhecimento assistida por IA.
 
-## Escopo da versão 0.1.1
+## Escopo da versão 0.1.2
 
 - Dashboard próprio com filtros por período.
 - Widget nativo para o Dashboard do GLPI.
@@ -19,6 +19,7 @@ Plugin para consolidar indicadores operacionais do ciclo de vida de incidentes n
 - Contagem de atividades remotas pela etiqueta configurada.
 - Respeita as entidades ativas da sessão GLPI.
 - Por segurança, a consolidação exige a permissão **Ver todos os tickets (READALL)**.
+- Compatível com a restrição do GLPI 11 contra SQL direto: o plugin usa `$DB->request()`/DB iterator e não usa `DBmysql->query()`.
 
 ## Padrão recomendado para a tarefa de IA
 
@@ -76,6 +77,10 @@ ou o caminho equivalente da imagem utilizada. O diretório `iosindicators` deve 
 
 Na versão 0.1, TTS médio e MTTR usam a mesma base temporal do GLPI (`solve_delay_stat`). Isso é intencional até o projeto fechar uma definição distinta de MTTR (por exemplo, tempo técnico ativo, tempo após início de atendimento ou tempo de indisponibilidade confirmado pelo Zabbix).
 
+## Compatibilidade com GLPI 11
+
+O GLPI 11 bloqueia consultas SQL diretas feitas com `DBmysql->query()`. A versão 0.1.2 usa exclusivamente o mecanismo suportado pelo GLPI, com `$DB->request()`, e realiza as agregações dos indicadores em PHP. As tarefas de RCA/IA são lidas em lotes para não gerar consultas `IN` excessivamente grandes.
+
 ## Próximas evoluções
 
 - Separar `data/hora do evento Zabbix`, `data/hora de criação no GLPI`, `início da tratativa` e `normalização` quando o payload/integração do Zabbix for padronizado.
@@ -95,7 +100,6 @@ Na versão 0.1, TTS médio e MTTR usam a mesma base temporal do GLPI (`solve_del
 ## Licença
 
 GPLv3+
-
 
 ## Diagnóstico
 
