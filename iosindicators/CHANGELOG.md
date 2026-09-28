@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.3
+- Extração automática do cliente pelo nome do host (`CLIENTE-XX-*`) e inclusão como grupo Requester do ticket.
+- Criação/reutilização do grupo raiz `NOC` e de subgrupos conforme o tipo lógico do host.
+- Associação automática do ticket ao subgrupo NOC correto como Assigned group.
+- Mapeamento validado na amostra de 793 tickets: `SRV`, `SW`, `DB`, `WEB` e `FW`.
+- `SRV`, `DB` e `WEB` são cadastrados como `Computer`; `SW` e `FW` como `NetworkEquipment`.
+- Subgrupos padrão: `NOC > Servidores`, `NOC > Banco de Dados`, `NOC > Portais WEB`, `NOC > Switches` e `NOC > Firewalls`.
+- Códigos desconhecidos são tratados de forma conservadora como `Computer` e encaminhados para `NOC > Outros`.
+- Ao reprocessar tickets de `SW`/`FW`, o plugin remove do ticket o vínculo legado com `Computer` criado pela v0.2.2 e mantém o ativo antigo preservado para revisão posterior.
+- Tela de configuração ampliada com controles para Requester, NOC e mapa de tipos de equipamento.
+
 ## 0.2.2
 - Corrigido o parser para reconhecer tickets Zabbix já solucionados com título no formato `Resolved in ...: SIM | HOST | evento | descrição`.
 - Adicionado fallback pelo bloco `PROBLEM NAME: SIM | HOST | evento | descrição` presente no conteúdo/follow-up dos chamados solucionados.
