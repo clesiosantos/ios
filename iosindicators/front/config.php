@@ -9,6 +9,84 @@ include(__DIR__ . '/../../../inc/includes.php');
 Session::checkRight('config', UPDATE);
 Plugin::load('iosindicators');
 
+/**
+ * Retorna o maior ID atual de task para delimitar exatamente quais tasks
+ * foram criadas durante uma execução manual da IA/RCA.
+ */
+function iosindicators_last_task_id(): int
+{
+    global $DB;
+
+    if (!$DB->tableExists('glpi_tickettasks')) {
+        return 0;
+    }
+
+    try {
+        $iterator = $DB->request([
+            'SELECT' => ['id'],
+            'FROM' => 'glpi_tickettasks',
+            'ORDER' => ['id DESC'],
+            'LIMIT' => 1,
+        ]);
+
+        foreach ($iterator as $row) {
+            return (int) ($row['id'] ?? 0);
+        }
+    } catch (Throwable $e) {
+        return 0;
+    }
+
+    return 0;
+}
+
+/**
+ * Lista apenas as tasks IA/RCA criadas depois do ID informado.
+ * Isso evita confundir tasks antigas com as criadas pela execução atual.
+ */
+function iosindicators_new_ai_rca_tasks(int $afterTaskId): array
+{
+    global $DB;
+
+    if (!$DB->tableExists('glpi_tickettasks')) {
+        return [];
+    }
+
+    $tag = trim((string) Settings::get('ai_task_tag', '[IA-RCA]'));
+    if ($tag === '') {
+        $tag = '[IA-RCA]';
+    }
+
+    $processed = [];
+
+    try {
+        $iterator = $DB->request([
+            'SELECT' => ['id', 'tickets_id', 'content'],
+            'FROM' => 'glpi_tickettasks',
+            'WHERE' => [
+                ['id' => ['>', $afterTaskId]],
+            ],
+            'ORDER' => ['id ASC'],
+            'LIMIT' => 100,
+        ]);
+
+        foreach ($iterator as $row) {
+            $content = html_entity_decode(strip_tags((string) ($row['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            if (mb_stripos($content, $tag) === false && mb_stripos($content, '[IOS-AI-RCA-V1]') === false) {
+                continue;
+            }
+
+            $processed[] = [
+                'ticket_id' => (int) ($row['tickets_id'] ?? 0),
+                'task_id' => (int) ($row['id'] ?? 0),
+            ];
+        }
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    return $processed;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // GLPI 11 valida o token CSRF no CheckCsrfListener antes de carregar
     // este arquivo legado. Revalidar aqui consumiria o mesmo token duas vezes.
@@ -26,8 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result['cursor']
         ), true, $result['errors'] > 0 ? WARNING : INFO);
     } elseif (isset($_POST['run_ai_rca_now'])) {
+        $beforeTaskId = iosindicators_last_task_id();
         $result = AiRca::runBatch();
-        Session::addMessageAfterRedirect(sprintf(
+        $processed = iosindicators_new_ai_rca_tasks($beforeTaskId);
+
+        $message = sprintf(
             'IA/RCA executada: lidos=%d, elegíveis=%d, tasks criadas=%d, já analisados=%d, ignorados=%d, erros=%d.',
             $result['read'],
             $result['eligible'],
@@ -35,7 +116,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result['already_analyzed'],
             $result['ignored'],
             $result['errors']
-        ), true, $result['errors'] > 0 ? WARNING : INFO);
+        );
+
+        if ($processed !== []) {
+            $items = [];
+            foreach ($processed as $item) {
+                $items[] = sprintf('Ticket #%d → Task #%d', $item['ticket_id'], $item['task_id']);
+            }
+            $message .= ' Processados: ' . implode(' | ', $items) . '.';
+        } elseif ((int) $result['created'] > 0) {
+            $message .= ' Houve criação de task IA/RCA, porém não foi possível recuperar a lista de IDs desta execução.';
+        } else {
+            $message .= ' Nenhum ticket novo foi processado nesta execução.';
+        }
+
+        Session::addMessageAfterRedirect(
+            $message,
+            true,
+            $result['errors'] > 0 ? WARNING : INFO
+        );
     } elseif (isset($_POST['reset_classifier_cursor'])) {
         Session::addMessageAfterRedirect(__('Cursor do classificador reiniciado. Na próxima execução o histórico será reavaliado.', 'iosindicators'), true, INFO);
     } else {
