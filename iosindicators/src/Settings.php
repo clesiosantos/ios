@@ -40,10 +40,18 @@ final class Settings
 
     public static function all(): array
     {
-        return array_merge(
+        $settings = array_merge(
             self::defaults(),
             \Config::getConfigurationValues(self::CONTEXT)
         );
+
+        // Migração transparente da configuração anterior para o modelo econômico.
+        // Ao salvar a tela novamente, o novo valor passa a ser persistido no GLPI.
+        if (($settings['ai_rca_model'] ?? '') === 'gemini-3.8-flash') {
+            $settings['ai_rca_model'] = 'gemini-3.5-flash-lite';
+        }
+
+        return $settings;
     }
 
     public static function get(string $key, mixed $fallback = null): mixed
