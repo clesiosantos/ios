@@ -1,5 +1,6 @@
 <?php
 
+use GlpiPlugin\Iosindicators\AiRca;
 use GlpiPlugin\Iosindicators\Classifier;
 use GlpiPlugin\Iosindicators\Settings;
 
@@ -24,6 +25,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result['errors'],
             $result['cursor']
         ), true, $result['errors'] > 0 ? WARNING : INFO);
+    } elseif (isset($_POST['run_ai_rca_now'])) {
+        $result = AiRca::runBatch();
+        Session::addMessageAfterRedirect(sprintf(
+            'IA/RCA executada: lidos=%d, elegíveis=%d, tasks criadas=%d, já analisados=%d, ignorados=%d, erros=%d.',
+            $result['read'],
+            $result['eligible'],
+            $result['created'],
+            $result['already_analyzed'],
+            $result['ignored'],
+            $result['errors']
+        ), true, $result['errors'] > 0 ? WARNING : INFO);
     } elseif (isset($_POST['reset_classifier_cursor'])) {
         Session::addMessageAfterRedirect(__('Cursor do classificador reiniciado. Na próxima execução o histórico será reavaliado.', 'iosindicators'), true, INFO);
     } else {
@@ -34,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $config = Settings::all();
+$hasGeminiKey = AiRca::hasApiKey();
 
 Html::header(
     __('IOS - Indicadores de Incidentes', 'iosindicators'),
@@ -91,10 +104,30 @@ echo '</div>';
 
 echo '<div class="alert alert-info mt-3">O classificador reconhece tickets abertos e solucionados, extrai <strong>CLIENTE</strong>, <strong>host</strong>, <strong>tipo de equipamento</strong> e <strong>evento</strong>, cria os atores e associa o ativo. Tickets Solved/Closed também podem ser enriquecidos; o status não é alterado.</div>';
 
+echo '<hr class="my-4">';
+echo '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2">';
+echo '<div><h3 class="h4 mb-1">IA / RCA com Gemini</h3><p class="text-muted mb-0">Analisa tickets solucionados/fechados, gera RCA estruturada e estima esforço técnico sem alterar o actiontime real.</p></div>';
+echo '<span class="badge ' . ($hasGeminiKey ? 'bg-success' : 'bg-warning text-dark') . '">' . ($hasGeminiKey ? 'GEMINI_API_KEY disponível' : 'GEMINI_API_KEY não configurada') . '</span>';
+echo '</div>';
+
+echo '<div class="row g-3 mt-1">';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_enabled" id="ai_rca_enabled"' . ((int)$config['ai_rca_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_enabled">Habilitar ação automática IOS - AI RCA</label><div class="form-text">A ação procura tickets Solved/Closed sem task [IA-RCA].</div></div></div>';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_redact_sensitive" id="ai_rca_redact_sensitive"' . ((int)$config['ai_rca_redact_sensitive'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_redact_sensitive">Redigir e-mails, telefones e CPF antes do envio</label></div></div>';
+echo '<div class="col-md-4"><label class="form-label">Modelo Gemini</label><input class="form-control" type="text" name="ai_rca_model" value="' . htmlescape((string)$config['ai_rca_model']) . '"><div class="form-text">Padrão atual: gemini-3.8-flash</div></div>';
+echo '<div class="col-md-2"><label class="form-label">Tasks por lote</label><input class="form-control" type="number" min="1" max="50" name="ai_rca_batch_size" value="' . (int)$config['ai_rca_batch_size'] . '"></div>';
+echo '<div class="col-md-2"><label class="form-label">Janela de busca</label><input class="form-control" type="number" min="1" max="5000" name="ai_rca_scan_limit" value="' . (int)$config['ai_rca_scan_limit'] . '"><div class="form-text">Últimos resolvidos.</div></div>';
+echo '<div class="col-md-2"><label class="form-label">Contexto máx.</label><input class="form-control" type="number" min="4000" max="50000" name="ai_rca_max_context_chars" value="' . (int)$config['ai_rca_max_context_chars'] . '"><div class="form-text">Caracteres.</div></div>';
+echo '<div class="col-md-2"><label class="form-label">Timeout</label><input class="form-control" type="number" min="10" max="120" name="ai_rca_timeout_seconds" value="' . (int)$config['ai_rca_timeout_seconds'] . '"><div class="form-text">Segundos.</div></div>';
+echo '</div>';
+
+echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong> não é salvo no banco nem no GitHub. Configure <code>GEMINI_API_KEY</code> no ambiente do PHP/Apache/PHP-FPM ou no arquivo <code>/etc/glpi/iosindicators.env</code> com permissão restrita. Exemplo: <code>GEMINI_API_KEY="sua-chave"</code>.</div>';
+echo '<div class="alert alert-secondary"><strong>Tempo IA:</strong> a task criada contém <code>Tempo estimado IA (segundos)</code>, porém o campo <code>actiontime</code> da task fica em zero. O dashboard usa a estimativa separadamente para não contaminar o tempo real de trabalho do GLPI.</div>';
+
 echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
 echo '<div class="d-flex flex-wrap gap-2">';
 echo '<button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy"></i> Salvar</button>';
-echo '<button type="submit" name="run_classifier_now" value="1" class="btn btn-success"><i class="ti ti-player-play"></i> Processar um lote agora</button>';
+echo '<button type="submit" name="run_classifier_now" value="1" class="btn btn-success"><i class="ti ti-player-play"></i> Processar classificador</button>';
+echo '<button type="submit" name="run_ai_rca_now" value="1" class="btn btn-info"' . (!$hasGeminiKey ? ' disabled' : '') . '><i class="ti ti-brain"></i> Processar IA/RCA agora</button>';
 echo '<button type="submit" name="reset_classifier_cursor" value="1" class="btn btn-outline-danger" onclick="return confirm(\'Reiniciar o cursor fará o histórico ser reavaliado. Continuar?\')"><i class="ti ti-refresh"></i> Reiniciar processamento histórico</button>';
 echo '</div>';
 echo '</form></div></div>';
