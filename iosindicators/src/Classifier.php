@@ -3,11 +3,15 @@
 namespace GlpiPlugin\Iosindicators;
 
 use CommonGLPI;
+use CommonITILActor;
 use Computer;
 use Config;
 use CronTask;
+use Group;
+use Group_Ticket;
 use ITILCategory;
 use Item_Ticket;
+use NetworkEquipment;
 use Ticket;
 use Throwable;
 
@@ -23,11 +27,43 @@ final class Classifier extends CommonGLPI
         'latency_high' => ['Monitoramento', 'Rede', 'Latência elevada'],
     ];
 
+    /**
+     * Mapeamento validado a partir da amostra atual de 793 tickets.
+     * Códigos não conhecidos permanecem seguros como Computer / NOC > Outros.
+     */
+    private const EQUIPMENT_MAP = [
+        'SRV' => [
+            'label' => 'Servidor',
+            'itemtype' => Computer::class,
+            'noc_group' => 'Servidores',
+        ],
+        'DB' => [
+            'label' => 'Banco de Dados',
+            'itemtype' => Computer::class,
+            'noc_group' => 'Banco de Dados',
+        ],
+        'WEB' => [
+            'label' => 'Portal WEB',
+            'itemtype' => Computer::class,
+            'noc_group' => 'Portais WEB',
+        ],
+        'SW' => [
+            'label' => 'Switch',
+            'itemtype' => NetworkEquipment::class,
+            'noc_group' => 'Switches',
+        ],
+        'FW' => [
+            'label' => 'Firewall',
+            'itemtype' => NetworkEquipment::class,
+            'noc_group' => 'Firewalls',
+        ],
+    ];
+
     public static function cronInfo($name): array
     {
         if ($name === 'Classifier') {
             return [
-                'description' => __('Classifica tickets Zabbix, cria hosts e associa categorias automaticamente.', 'iosindicators'),
+                'description' => __('Classifica tickets de monitoramento, cria ativos, requester e grupos NOC automaticamente.', 'iosindicators'),
             ];
         }
         return [];
@@ -161,15 +197,22 @@ final class Classifier extends CommonGLPI
                 'changed' => false,
                 'host' => null,
                 'event' => null,
+                'client' => null,
+                'equipment_code' => null,
+                'itemtype' => null,
+                'item_id' => 0,
                 'category_id' => 0,
-                'computer_id' => 0,
+                'requester_group_id' => 0,
+                'assigned_group_id' => 0,
             ];
         }
 
         $changed = false;
         $entityId = (int) ($ticket->fields['entities_id'] ?? 0);
         $categoryId = 0;
-        $computerId = 0;
+        $itemId = 0;
+        $requesterGroupId = 0;
+        $assignedGroupId = 0;
 
         if ((int) Settings::get('classifier_create_categories', 1) === 1 && $parsed['event'] !== null) {
             $categoryId = self::ensureCategoryForEvent($parsed['event'], $entityId);
@@ -185,10 +228,68 @@ final class Classifier extends CommonGLPI
             }
         }
 
+        $equipment = self::equipmentProfile((string) $parsed['host']);
+
         if ((int) Settings::get('classifier_create_hosts', 1) === 1 && $parsed['host'] !== null) {
-            $computerId = self::ensureComputer($parsed['host'], $entityId);
-            if ($computerId > 0 && self::ensureTicketItemLink((int) $ticket->getID(), $computerId)) {
+            $itemId = self::ensureAsset(
+                $parsed['host'],
+                $entityId,
+                $equipment['itemtype'],
+                $equipment['label'],
+                $equipment['code']
+            );
+
+            if ($itemId > 0 && self::ensureTicketItemLink(
+                (int) $ticket->getID(),
+                $equipment['itemtype'],
+                $itemId
+            )) {
                 $changed = true;
+            }
+
+            // Corrige os vínculos criados pela v0.2.2, que tratava todos os hosts
+            // como Computer. O ativo antigo é preservado; somente o vínculo do ticket
+            // é removido quando o tipo correto passou a ser NetworkEquipment.
+            if ($equipment['itemtype'] === NetworkEquipment::class) {
+                self::removeLegacyComputerLink((int) $ticket->getID(), $parsed['host'], $entityId);
+            }
+        }
+
+        if ((int) Settings::get('classifier_assign_requester', 1) === 1 && $parsed['client'] !== null) {
+            $requesterGroupId = self::ensureGroup(
+                $parsed['client'],
+                0,
+                $entityId,
+                true,
+                false
+            );
+            if ($requesterGroupId > 0 && self::ensureTicketGroupLink(
+                (int) $ticket->getID(),
+                $requesterGroupId,
+                CommonITILActor::REQUESTER
+            )) {
+                $changed = true;
+            }
+        }
+
+        if ((int) Settings::get('classifier_assign_noc', 1) === 1) {
+            $nocRoot = (string) Settings::get('classifier_noc_root_group', 'NOC');
+            $nocRootId = self::ensureGroup($nocRoot, 0, $entityId, false, true);
+            if ($nocRootId > 0) {
+                $assignedGroupId = self::ensureGroup(
+                    $equipment['noc_group'],
+                    $nocRootId,
+                    $entityId,
+                    false,
+                    true
+                );
+                if ($assignedGroupId > 0 && self::ensureTicketGroupLink(
+                    (int) $ticket->getID(),
+                    $assignedGroupId,
+                    CommonITILActor::ASSIGN
+                )) {
+                    $changed = true;
+                }
             }
         }
 
@@ -197,8 +298,13 @@ final class Classifier extends CommonGLPI
             'changed' => $changed,
             'host' => $parsed['host'],
             'event' => $parsed['event'],
+            'client' => $parsed['client'],
+            'equipment_code' => $equipment['code'],
+            'itemtype' => $equipment['itemtype'],
+            'item_id' => $itemId,
             'category_id' => $categoryId,
-            'computer_id' => $computerId,
+            'requester_group_id' => $requesterGroupId,
+            'assigned_group_id' => $assignedGroupId,
         ];
     }
 
@@ -257,6 +363,7 @@ final class Classifier extends CommonGLPI
             || stripos($name, 'Resolved in ') !== false;
 
         $isZabbix = $host !== null && $event !== null && $zabbixEvidence;
+        $identity = self::parseHostIdentity($host);
 
         return [
             'is_zabbix' => $isZabbix,
@@ -265,6 +372,42 @@ final class Classifier extends CommonGLPI
             'severity' => $severity,
             'problem_id' => $problemId,
             'failure_started_at' => $failureStartedAt,
+            'client' => $identity['client'],
+            'equipment_code' => $identity['equipment_code'],
+        ];
+    }
+
+    private static function parseHostIdentity(?string $host): array
+    {
+        if ($host === null) {
+            return ['client' => null, 'equipment_code' => null];
+        }
+
+        if (preg_match('/^(CLIENTE-[0-9]+)-([A-Z0-9]+)-/iu', $host, $m)) {
+            return [
+                'client' => mb_strtoupper($m[1]),
+                'equipment_code' => mb_strtoupper($m[2]),
+            ];
+        }
+
+        return ['client' => null, 'equipment_code' => null];
+    }
+
+    private static function equipmentProfile(string $host): array
+    {
+        $identity = self::parseHostIdentity($host);
+        $code = (string) ($identity['equipment_code'] ?? '');
+        $profile = self::EQUIPMENT_MAP[$code] ?? [
+            'label' => $code !== '' ? $code : 'Host monitorado',
+            'itemtype' => Computer::class,
+            'noc_group' => 'Outros',
+        ];
+
+        return [
+            'code' => $code !== '' ? $code : 'OTHER',
+            'label' => $profile['label'],
+            'itemtype' => $profile['itemtype'],
+            'noc_group' => $profile['noc_group'],
         ];
     }
 
@@ -315,10 +458,18 @@ final class Classifier extends CommonGLPI
         return $id ? (int) $id : 0;
     }
 
-    private static function ensureComputer(string $host, int $entityId): int
-    {
-        $computer = new Computer();
-        $found = $computer->find([
+    private static function ensureAsset(
+        string $host,
+        int $entityId,
+        string $itemtype,
+        string $logicalType,
+        string $code
+    ): int {
+        $asset = $itemtype === NetworkEquipment::class
+            ? new NetworkEquipment()
+            : new Computer();
+
+        $found = $asset->find([
             'name' => $host,
             'entities_id' => $entityId,
             'is_deleted' => 0,
@@ -329,22 +480,26 @@ final class Classifier extends CommonGLPI
             return (int) ($first['id'] ?? 0);
         }
 
-        $id = $computer->add([
+        $id = $asset->add([
             'name' => $host,
             'entities_id' => $entityId,
-            'comment' => "Host monitorado criado automaticamente pelo IOS Indicators a partir de ticket de monitoramento.\nOrigem lógica: Zabbix.",
+            'comment' => sprintf(
+                "Host monitorado criado automaticamente pelo IOS Indicators.\nOrigem lógica: Zabbix.\nCódigo: %s.\nTipo lógico: %s.",
+                $code,
+                $logicalType
+            ),
         ]);
 
         return $id ? (int) $id : 0;
     }
 
-    private static function ensureTicketItemLink(int $ticketId, int $computerId): bool
+    private static function ensureTicketItemLink(int $ticketId, string $itemtype, int $itemId): bool
     {
         $link = new Item_Ticket();
         $found = $link->find([
             'tickets_id' => $ticketId,
-            'itemtype' => Computer::class,
-            'items_id' => $computerId,
+            'itemtype' => $itemtype,
+            'items_id' => $itemId,
         ], ['id ASC'], 1);
 
         if ($found !== []) {
@@ -353,8 +508,114 @@ final class Classifier extends CommonGLPI
 
         return (bool) $link->add([
             'tickets_id' => $ticketId,
+            'itemtype' => $itemtype,
+            'items_id' => $itemId,
+        ]);
+    }
+
+    private static function removeLegacyComputerLink(int $ticketId, string $host, int $entityId): void
+    {
+        $computer = new Computer();
+        $found = $computer->find([
+            'name' => $host,
+            'entities_id' => $entityId,
+            'is_deleted' => 0,
+        ], ['id ASC'], 1);
+
+        if ($found === []) {
+            return;
+        }
+
+        $first = reset($found);
+        $computerId = (int) ($first['id'] ?? 0);
+        if ($computerId <= 0 || !$computer->getFromDB($computerId)) {
+            return;
+        }
+
+        $comment = (string) ($computer->fields['comment'] ?? '');
+        if (stripos($comment, 'IOS Indicators') === false) {
+            return;
+        }
+
+        $link = new Item_Ticket();
+        $link->deleteByCriteria([
+            'tickets_id' => $ticketId,
             'itemtype' => Computer::class,
             'items_id' => $computerId,
+        ]);
+    }
+
+    private static function ensureGroup(
+        string $name,
+        int $parentId,
+        int $entityId,
+        bool $requester,
+        bool $assign
+    ): int {
+        $group = new Group();
+        $found = $group->find([
+            'name' => $name,
+            'groups_id' => $parentId,
+            'entities_id' => $entityId,
+        ], ['id ASC'], 1);
+
+        if ($found !== []) {
+            $first = reset($found);
+            $groupId = (int) ($first['id'] ?? 0);
+            if ($groupId > 0 && $group->getFromDB($groupId)) {
+                $update = ['id' => $groupId];
+                $needsUpdate = false;
+                if ($requester && (int) ($group->fields['is_requester'] ?? 0) !== 1) {
+                    $update['is_requester'] = 1;
+                    $needsUpdate = true;
+                }
+                if ($assign && (int) ($group->fields['is_assign'] ?? 0) !== 1) {
+                    $update['is_assign'] = 1;
+                    $needsUpdate = true;
+                }
+                if ($assign && (int) ($group->fields['is_task'] ?? 0) !== 1) {
+                    $update['is_task'] = 1;
+                    $needsUpdate = true;
+                }
+                if ($needsUpdate) {
+                    $group->update($update);
+                }
+            }
+            return $groupId;
+        }
+
+        $id = $group->add([
+            'name' => $name,
+            'groups_id' => $parentId,
+            'entities_id' => $entityId,
+            'is_recursive' => 1,
+            'is_requester' => $requester ? 1 : 0,
+            'is_watcher' => 0,
+            'is_assign' => $assign ? 1 : 0,
+            'is_task' => $assign ? 1 : 0,
+            'comment' => 'Grupo criado/gerenciado automaticamente pelo plugin IOS Indicators.',
+        ]);
+
+        return $id ? (int) $id : 0;
+    }
+
+    private static function ensureTicketGroupLink(int $ticketId, int $groupId, int $actorType): bool
+    {
+        $link = new Group_Ticket();
+        $found = $link->find([
+            'tickets_id' => $ticketId,
+            'groups_id' => $groupId,
+            'type' => $actorType,
+        ], ['id ASC'], 1);
+
+        if ($found !== []) {
+            return false;
+        }
+
+        return (bool) $link->add([
+            'tickets_id' => $ticketId,
+            'groups_id' => $groupId,
+            'type' => $actorType,
         ]);
     }
 
@@ -374,7 +635,7 @@ final class Classifier extends CommonGLPI
         if ($value === '' || mb_strlen($value) > 255) {
             return null;
         }
-        return $value;
+        return mb_strtoupper($value);
     }
 
     private static function sanitizeEvent(string $value): ?string
