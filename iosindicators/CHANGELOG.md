@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.1
+- KPIs principais passam a ser encapsulados visualmente em cards individuais, com borda, sombra, fundo, espaçamento interno e comportamento responsivo.
+- Reforçada a especificidade do CSS para evitar que estilos globais do GLPI sobrescrevam os cards do plugin.
+- Grade dos indicadores passa a usar `display: grid` de forma explícita, com adaptação automática conforme a largura disponível.
+- Ícones recebem área própria dentro do card e o botão de informações foi redesenhado para ficar discreto e consistente.
+- Adicionado efeito de hover nos cards para melhorar a leitura e sensação de profundidade do dashboard.
+- Ajustado o tamanho dos números, rótulos e metadados para dar mais destaque aos KPIs.
+- Melhorada a responsividade das grades de Visão Executiva, Velocidade Operacional, Qualidade do Dado e Tempo Real.
+- Versão incrementada para forçar atualização do CSS versionado no navegador.
+
 ## 0.4.0
 - Dashboard reorganizado em abas: **Visão executiva**, **Velocidade operacional**, **Qualidade do dado** e **Tempo Real**.
 - Nova navegação por abas com persistência da aba ativa entre recarregamentos da página.
