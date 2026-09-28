@@ -1,17 +1,17 @@
 .iosindicators-wrapper {
     --bg-main: #f8fafc;
     --surface-card: #ffffff;
-    --surface-muted: #f8fafc;
+    --surface-muted: #f1f5f9;
     --border-color: #e2e8f0;
+    --border-strong: #cbd5e1;
     --border-focus: #3b82f6;
     --text-main: #0f172a;
+    --text-strong: #1e293b;
     --text-muted: #64748b;
     --text-subtle: #94a3b8;
-
     --primary: #2563eb;
     --primary-light: #eff6ff;
     --primary-hover: #1d4ed8;
-
     --success: #10b981;
     --success-light: #ecfdf5;
     --warning: #f59e0b;
@@ -22,34 +22,22 @@
     --info-light: #f0f9ff;
     --purple: #7c3aed;
     --purple-light: #f5f3ff;
-    --slate-light: #f1f5f9;
-
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
-
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
-
-    padding-bottom: 28px;
+    --radius-xl: 18px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, .05);
+    --shadow-md: 0 5px 16px rgba(15, 23, 42, .07);
+    --shadow-hover: 0 14px 30px rgba(15, 23, 42, .10);
+    padding-bottom: 32px;
     color: var(--text-main);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-.iosindicators-wrapper * {
-    box-sizing: border-box;
-}
+.iosindicators-wrapper * { box-sizing: border-box; }
+.iosindicators-shell { display: flex; flex-direction: column; gap: 0; }
 
-.iosindicators-shell {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-/* ===================================================
-   CABEÇALHO E FILTROS
-=================================================== */
+/* Cabeçalho */
 .iosindicators-wrapper > .d-flex.flex-wrap.align-items-center.justify-content-between {
     gap: 18px !important;
     margin-bottom: 18px !important;
@@ -58,129 +46,105 @@
 .iosindicators-wrapper > .d-flex h2 {
     margin: 0 0 6px 0 !important;
     color: var(--text-main);
-    font-size: 1.5rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-size: 1.55rem;
+    font-weight: 760;
+    letter-spacing: -.025em;
 }
 
 .iosindicators-wrapper > .d-flex .text-muted {
     color: var(--text-muted) !important;
-    font-size: 0.875rem;
+    font-size: .875rem;
     font-weight: 500;
 }
 
+/* Filtros */
 .iosindicators-filter {
     display: flex !important;
     align-items: flex-end !important;
     gap: 12px !important;
-    padding: 12px 16px;
+    padding: 12px 14px;
     background: var(--surface-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
 }
 
-.iosindicators-filter > div {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
+.iosindicators-filter > div { display: flex; flex-direction: column; gap: 4px; }
 .iosindicators-filter .form-label {
     margin: 0 !important;
     color: var(--text-muted);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: .04em;
+    font-size: .70rem;
+    font-weight: 750;
     text-transform: uppercase;
+    letter-spacing: .05em;
 }
 
 .iosindicators-filter .form-control,
 .iosindicators-filter .form-select {
     min-width: 145px;
     height: 38px;
-    padding: 6px 12px;
-    background-color: #fff;
+    padding: 6px 11px;
+    background: #fff;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     color: var(--text-main);
-    font-size: 0.875rem;
+    font-size: .875rem;
     box-shadow: none !important;
-    outline: none;
     transition: border-color .2s ease, box-shadow .2s ease;
 }
 
 .iosindicators-filter .form-control:focus,
 .iosindicators-filter .form-select:focus {
     border-color: var(--border-focus);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, .15) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, .12) !important;
 }
 
 .iosindicators-filter .btn-primary {
     height: 38px;
     padding: 0 18px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
     border: 0 !important;
     border-radius: var(--radius-sm) !important;
     background: linear-gradient(135deg, #f59e0b, #d97706) !important;
     color: #fff !important;
-    font-size: 0.875rem;
+    font-size: .875rem;
     font-weight: 700;
-    box-shadow: 0 2px 4px rgba(217, 119, 6, .20) !important;
+    box-shadow: 0 3px 8px rgba(217, 119, 6, .20) !important;
     transition: transform .15s ease, filter .15s ease;
 }
 
-.iosindicators-filter .btn-primary:hover {
-    filter: brightness(1.06);
-    transform: translateY(-1px);
-}
+.iosindicators-filter .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.05); }
 
-/* ===================================================
-   BANNER DO PERÍODO
-=================================================== */
+/* Período */
 .iosindicators-wrapper > .alert-info {
-    margin-bottom: 22px;
-    padding: 10px 16px;
-    border: 0 !important;
+    margin-bottom: 20px;
+    padding: 10px 15px;
+    border: 1px solid #dbeafe !important;
     border-left: 4px solid var(--primary) !important;
-    border-radius: 4px var(--radius-sm) var(--radius-sm) 4px !important;
-    background: #f1f5f9 !important;
+    border-radius: var(--radius-sm) !important;
+    background: #f8fbff !important;
     color: var(--text-muted) !important;
-    font-size: 0.85rem;
+    font-size: .84rem;
     box-shadow: none !important;
 }
 
-.iosindicators-wrapper > .alert-info strong {
-    color: var(--text-main);
-}
+.iosindicators-wrapper > .alert-info strong { color: var(--text-main); }
 
-/* ===================================================
-   ABAS
-=================================================== */
+/* Abas */
 .iosindicators-tabs {
-    margin-bottom: 24px !important;
-    padding: 0;
-    overflow: visible;
+    margin-bottom: 22px !important;
     border: 1px solid var(--border-color) !important;
     border-radius: var(--radius-md) !important;
     background: var(--surface-card) !important;
     box-shadow: var(--shadow-sm) !important;
+    overflow: visible;
 }
 
-.iosindicators-tabs .card-body {
-    padding: 6px !important;
-}
-
-.iosindicators-tabs .nav {
-    gap: 8px !important;
-}
+.iosindicators-tabs .card-body { padding: 6px !important; }
+.iosindicators-tabs .nav { gap: 6px !important; }
 
 .iosindicators-tab-btn {
     min-height: 42px;
-    padding: 9px 16px !important;
+    padding: 9px 15px !important;
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
@@ -189,178 +153,97 @@
     border-radius: var(--radius-sm) !important;
     background: transparent !important;
     color: var(--text-muted) !important;
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-size: .875rem;
+    font-weight: 650;
     box-shadow: none !important;
-    transition: all .2s ease;
+    transition: all .18s ease;
 }
 
-.iosindicators-tab-btn i {
-    font-size: 18px;
-}
-
-.iosindicators-tab-btn:hover {
-    background: #f1f5f9 !important;
-    color: var(--text-main) !important;
-}
-
+.iosindicators-tab-btn i { font-size: 18px; }
+.iosindicators-tab-btn:hover { background: var(--surface-muted) !important; color: var(--text-main) !important; }
 .iosindicators-tab-btn.active {
     background: var(--primary-light) !important;
     color: var(--primary) !important;
     box-shadow: 0 1px 3px rgba(37, 99, 235, .10) !important;
 }
 
-.iosindicators-tab-content {
-    display: block;
-}
-
-/* ===================================================
-   CARD DE CONTEXTO / HERO
-=================================================== */
+/* Card de contexto */
 .iosindicators-hero {
-    margin-bottom: 24px !important;
-    overflow: hidden;
+    margin-bottom: 20px !important;
     border: 1px solid var(--border-color) !important;
     border-radius: var(--radius-lg) !important;
     background: var(--surface-card) !important;
     box-shadow: var(--shadow-sm) !important;
+    overflow: hidden;
 }
 
-.iosindicators-hero::after {
-    display: none !important;
-}
-
-.iosindicators-hero .card-body {
-    padding: 20px 24px !important;
-}
-
-.iosindicators-hero h3 {
-    margin: 4px 0 !important;
-    color: var(--text-main);
-    font-size: 1.25rem;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-}
-
-.iosindicators-hero .text-muted {
-    color: var(--text-muted) !important;
-    font-size: 0.875rem;
-}
+.iosindicators-hero::after { display: none !important; }
+.iosindicators-hero .card-body { padding: 18px 22px !important; }
+.iosindicators-hero h3 { margin: 4px 0 5px !important; color: var(--text-main); font-size: 1.22rem; font-weight: 750; }
+.iosindicators-hero p { color: var(--text-muted) !important; font-size: .86rem; }
 
 .iosindicators-hero-eyebrow {
     display: inline-flex;
-    align-items: center;
-    margin-bottom: 4px;
-    padding: 2px 8px;
+    padding: 3px 8px;
     border-radius: 4px;
     background: var(--primary-light);
     color: var(--primary);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: .04em;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .06em;
     text-transform: uppercase;
 }
 
-.iosindicators-chip-group {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 18px;
-}
-
+.iosindicators-chip-group { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 16px; }
 .iosindicators-chip {
-    min-width: 145px;
-    padding: 0 0 0 16px;
+    min-width: 135px;
+    padding: 0 0 0 14px;
     border: 0;
     border-left: 2px solid var(--border-color);
-    border-radius: 0;
     background: transparent;
     box-shadow: none;
-    text-align: right;
 }
+.iosindicators-chip-label { display: block; color: var(--text-muted); font-size: .70rem; font-weight: 600; }
+.iosindicators-chip strong { display: block; margin-top: 2px; color: var(--text-main); font-size: 1rem; font-weight: 750; }
 
-.iosindicators-chip-label {
-    display: block;
-    margin-bottom: 2px;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0;
-    text-transform: none;
-}
-
-.iosindicators-chip strong {
-    display: block;
-    color: var(--text-main);
-    font-size: 1rem;
-    font-weight: 700;
-}
-
-/* ===================================================
-   GRID DE KPIs
-=================================================== */
+/* KPIs */
 .iosindicators-grid {
     display: grid !important;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 20px !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0;
     align-items: stretch;
-    margin-bottom: 24px;
 }
-
-.iosindicators-grid-headline {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
 .iosindicators-grid-performance,
 .iosindicators-grid-quality,
-.iosindicators-grid-realtime {
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-}
+.iosindicators-grid-realtime { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.iosindicators-grid-compact { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 
-.iosindicators-grid-compact {
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-}
-
-/* ===================================================
-   KPI CARDS
-=================================================== */
 .iosindicators-wrapper .iosindicators-kpi {
     position: relative;
-    min-height: 205px;
-    width: 100%;
-    padding: 24px !important;
-    margin: 0 !important;
     display: flex !important;
     flex-direction: column;
-    justify-content: flex-start;
-    overflow: hidden;
+    min-height: 176px;
+    width: 100%;
+    padding: 20px !important;
+    margin: 0 !important;
     border: 1px solid var(--border-color) !important;
     border-radius: var(--radius-lg) !important;
     background: var(--surface-card) !important;
     color: var(--text-main) !important;
     box-shadow: var(--shadow-sm) !important;
-    transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s cubic-bezier(.4,0,.2,1), border-color .25s ease;
-}
-
-.iosindicators-wrapper .iosindicators-kpi::before,
-.iosindicators-wrapper .iosindicators-kpi::after {
-    display: none !important;
+    overflow: hidden;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
 }
 
 .iosindicators-wrapper .iosindicators-kpi:hover {
     transform: translateY(-3px);
-    border-color: #cbd5e1 !important;
+    border-color: var(--border-strong) !important;
     box-shadow: var(--shadow-hover) !important;
 }
 
-.iosindicators-kpi-top {
-    min-height: 44px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
+.iosindicators-wrapper .iosindicators-kpi::before { display: none !important; }
+.iosindicators-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 
 .iosindicators-kpi-icon {
     width: 44px;
@@ -368,20 +251,19 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-md);
+    border-radius: 10px;
+    font-size: 21px;
     background: var(--primary-light);
     color: var(--primary);
-    font-size: 21px;
-    box-shadow: none !important;
+    box-shadow: none;
 }
 
 .iosindicators-info-btn {
     appearance: none !important;
-    -webkit-appearance: none !important;
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
-    min-height: 28px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
     padding: 0 !important;
     display: inline-flex !important;
     align-items: center;
@@ -390,420 +272,222 @@
     border-radius: 50% !important;
     background: transparent !important;
     color: var(--text-subtle) !important;
-    font-size: 16px;
-    line-height: 1;
     box-shadow: none !important;
-    cursor: pointer;
-    transition: color .2s ease, background .2s ease;
+    font-size: 16px;
+    cursor: help;
 }
-
-.iosindicators-info-btn:hover {
-    background: #f1f5f9 !important;
-    color: var(--text-muted) !important;
-}
-
-.iosindicators-info-btn.is-light {
-    background: transparent !important;
-    color: var(--text-subtle) !important;
-}
+.iosindicators-info-btn:hover { color: var(--text-muted) !important; background: var(--surface-muted) !important; }
 
 .iosindicators-wrapper .iosindicators-kpi-value {
-    margin: 0 0 6px 0 !important;
+    margin-top: 0;
     color: var(--text-main) !important;
-    font-size: clamp(2rem, 2.4vw, 2.25rem) !important;
-    font-weight: 800 !important;
-    line-height: 1.1;
-    letter-spacing: -0.03em;
+    font-size: clamp(2rem, 2.4vw, 2.55rem) !important;
+    line-height: 1.05;
+    letter-spacing: -.035em;
+    font-weight: 820 !important;
 }
 
 .iosindicators-wrapper .iosindicators-kpi-label {
-    margin: 0 0 4px 0 !important;
+    margin-top: 7px;
     color: #334155 !important;
-    font-size: 0.95rem !important;
-    font-weight: 600 !important;
-    line-height: 1.35;
+    font-size: .94rem !important;
+    font-weight: 680 !important;
 }
 
 .iosindicators-wrapper .iosindicators-kpi-meta {
-    margin-top: auto !important;
-    padding-top: 10px;
+    margin-top: auto;
+    padding-top: 11px;
     border-top: 1px dashed var(--border-color);
     color: var(--text-muted) !important;
-    font-size: 0.80rem !important;
+    font-size: .78rem !important;
     line-height: 1.4;
-    opacity: 1 !important;
+    opacity: 1;
 }
 
-.iosindicators-grid-compact .iosindicators-kpi {
-    min-height: 155px;
-    padding: 18px !important;
-}
+.iosindicators-grid-compact .iosindicators-kpi { min-height: 128px; padding: 14px !important; }
+.iosindicators-grid-compact .iosindicators-kpi-value { font-size: 1.7rem !important; }
+.iosindicators-grid-compact .iosindicators-kpi-icon { width: 38px; height: 38px; font-size: 18px; }
 
-.iosindicators-grid-compact .iosindicators-kpi-top {
-    min-height: 38px;
-    margin-bottom: 10px;
-}
-
-.iosindicators-grid-compact .iosindicators-kpi-icon {
-    width: 38px;
-    height: 38px;
-    font-size: 18px;
-}
-
-.iosindicators-grid-compact .iosindicators-kpi-value {
-    font-size: 1.7rem !important;
-}
-
-/* ===================================================
-   VARIAÇÕES DE COR DOS ÍCONES DOS KPIs
-=================================================== */
-.iosindicators-tone-yellow .iosindicators-kpi-icon,
-.iosindicators-tone-orange .iosindicators-kpi-icon {
-    background: var(--warning-light) !important;
-    color: #d97706 !important;
-}
-
+.iosindicators-tone-yellow .iosindicators-kpi-icon { background: var(--warning-light); color: #d97706; }
 .iosindicators-tone-green .iosindicators-kpi-icon,
-.iosindicators-tone-success .iosindicators-kpi-icon {
-    background: var(--success-light) !important;
-    color: #059669 !important;
-}
-
-.iosindicators-tone-cyan .iosindicators-kpi-icon,
+.iosindicators-tone-success .iosindicators-kpi-icon { background: var(--success-light); color: #059669; }
+.iosindicators-tone-orange .iosindicators-kpi-icon { background: #fff7ed; color: #ea580c; }
+.iosindicators-tone-cyan .iosindicators-kpi-icon { background: var(--info-light); color: #0284c7; }
 .iosindicators-tone-blue .iosindicators-kpi-icon,
-.iosindicators-tone-indigo .iosindicators-kpi-icon {
-    background: var(--primary-light) !important;
-    color: var(--primary) !important;
-}
-
-.iosindicators-tone-teal .iosindicators-kpi-icon {
-    background: #f0fdfa !important;
-    color: #0f766e !important;
-}
-
+.iosindicators-tone-indigo .iosindicators-kpi-icon { background: var(--primary-light); color: var(--primary); }
 .iosindicators-tone-purple .iosindicators-kpi-icon,
-.iosindicators-tone-pink .iosindicators-kpi-icon {
-    background: var(--purple-light) !important;
-    color: var(--purple) !important;
-}
-
+.iosindicators-tone-pink .iosindicators-kpi-icon { background: var(--purple-light); color: var(--purple); }
+.iosindicators-tone-teal .iosindicators-kpi-icon { background: #f0fdfa; color: #0f766e; }
 .iosindicators-tone-gray .iosindicators-kpi-icon,
 .iosindicators-tone-light .iosindicators-kpi-icon,
-.iosindicators-tone-slate .iosindicators-kpi-icon {
-    background: var(--slate-light) !important;
-    color: #475569 !important;
-}
+.iosindicators-tone-slate .iosindicators-kpi-icon { background: #f1f5f9; color: #475569; }
 
-.iosindicators-tone-dark .iosindicators-kpi-icon {
-    background: #e2e8f0 !important;
-    color: #0f172a !important;
-}
-
-/* ===================================================
-   PAINÉIS ANALÍTICOS
-=================================================== */
+/* Painéis */
 .iosindicators-panel {
-    overflow: hidden;
     border: 1px solid var(--border-color) !important;
     border-radius: var(--radius-lg) !important;
     background: var(--surface-card) !important;
     box-shadow: var(--shadow-sm) !important;
-    transition: box-shadow .2s ease, border-color .2s ease;
-}
-
-.iosindicators-panel:hover {
-    border-color: #cbd5e1 !important;
-    box-shadow: var(--shadow-md) !important;
-}
-
-.iosindicators-panel .card-header {
-    padding: 18px 20px 16px !important;
-    background: #fff !important;
-    border-bottom: 1px solid var(--border-color) !important;
-}
-
-.iosindicators-panel .card-body {
-    padding: 18px 20px 20px !important;
-}
-
-.iosindicators-panel-title {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.iosindicators-panel-title > i {
-    width: 38px;
-    height: 38px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-    background: var(--primary-light);
-    color: var(--primary);
-    font-size: 19px;
-    flex: 0 0 auto;
-}
-
-.iosindicators-panel-title strong {
-    color: var(--text-main);
-    font-size: 0.98rem;
-    font-weight: 700;
-}
-
-.iosindicators-panel-title .text-muted {
-    margin-top: 3px;
-    color: var(--text-muted) !important;
-    font-size: 0.80rem;
-}
-
-/* ===================================================
-   BARRAS / DISTRIBUIÇÕES
-=================================================== */
-.iosindicators-bar-row + .iosindicators-bar-row {
-    margin-top: 14px;
-}
-
-.iosindicators-bar-head,
-.iosindicators-completeness-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 7px;
-}
-
-.iosindicators-bar-label,
-.iosindicators-completeness-head span:first-child {
-    color: #334155;
-    font-size: 0.86rem;
-    font-weight: 600;
-    word-break: break-word;
-}
-
-.iosindicators-bar-value,
-.iosindicators-completeness-head span:last-child {
-    color: var(--text-muted);
-    font-size: 0.80rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.iosindicators-bar-value small {
-    color: var(--text-subtle);
-}
-
-.iosindicators-progress {
-    height: 8px;
     overflow: hidden;
-    border-radius: 999px;
-    background: #e2e8f0;
+    transition: box-shadow .2s ease, transform .2s ease;
+}
+.iosindicators-panel:hover { box-shadow: var(--shadow-md) !important; }
+.iosindicators-panel .card-header { padding: 16px 18px; background: #fff; border-bottom: 1px solid var(--border-color); }
+.iosindicators-panel .card-body { padding: 16px 18px 18px; }
+.iosindicators-panel-title { display: flex; align-items: flex-start; gap: 11px; }
+.iosindicators-panel-title > i { margin-top: 1px; color: var(--primary); font-size: 20px; }
+.iosindicators-panel-title strong { color: var(--text-main); font-size: .98rem; font-weight: 720; }
+.iosindicators-panel-title .text-muted { margin-top: 2px; color: var(--text-muted) !important; font-size: .78rem; }
+
+/* Barras */
+.iosindicators-bar-row + .iosindicators-bar-row { margin-top: 12px; }
+.iosindicators-bar-head,
+.iosindicators-completeness-head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.iosindicators-bar-label,
+.iosindicators-completeness-head span:first-child { color: #334155; font-size: .82rem; font-weight: 650; }
+.iosindicators-bar-value,
+.iosindicators-completeness-head span:last-child { color: var(--text-muted); font-size: .78rem; white-space: nowrap; }
+.iosindicators-progress { height: 8px; border-radius: 999px; background: #eef2f7; overflow: hidden; }
+.iosindicators-progress.lg { height: 10px; }
+.iosindicators-progress .progress-bar { border-radius: 999px; background: linear-gradient(90deg, #2563eb, #38bdf8); }
+.iosindicators-completeness-row + .iosindicators-completeness-row { margin-top: 14px; }
+.iosindicators-completeness-meta { margin-top: 5px; color: var(--text-subtle); font-size: .74rem; }
+
+/* Dashboard executivo fluido */
+#tab-executiva .iosindicators-grid-headline { margin-bottom: 18px; }
+#tab-executiva .ios-executive-board {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px !important;
+    margin: 18px 0 0 !important;
+}
+#tab-executiva .ios-executive-board > [class*="col-"] { width: auto !important; max-width: none !important; padding: 0 !important; }
+#tab-executiva .ios-exec-wide { grid-column: span 7; }
+#tab-executiva .ios-exec-narrow { grid-column: span 5; }
+#tab-executiva .ios-exec-half { grid-column: span 6; }
+#tab-executiva .ios-exec-secondary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 16px;
 }
 
-.iosindicators-progress.lg {
-    height: 10px;
+/* Donut / gráfico */
+.ios-donut-card .card-body { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 24px; align-items: center; }
+.ios-donut-wrap { position: relative; width: 150px; height: 150px; margin: 0 auto; }
+.ios-donut {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: conic-gradient(#e2e8f0 0 100%);
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, .15);
 }
-
-.iosindicators-progress .progress-bar {
-    border-radius: 999px;
-    background: linear-gradient(90deg, var(--primary), #3b82f6) !important;
+.ios-donut::after {
+    content: "";
+    position: absolute;
+    inset: 22px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(226, 232, 240, .8);
 }
-
-.iosindicators-completeness-row + .iosindicators-completeness-row {
-    margin-top: 15px;
-}
-
-.iosindicators-completeness-meta {
-    margin-top: 5px;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-}
-
-/* ===================================================
-   TABELA TEMPO REAL
-=================================================== */
-.iosindicators-table {
-    color: var(--text-main);
-}
-
-.iosindicators-table thead th {
-    padding: 11px 14px;
-    border-bottom: 1px solid var(--border-color) !important;
-    background: #f8fafc;
-    color: var(--text-muted);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-}
-
-.iosindicators-table td {
-    padding: 12px 14px;
-    vertical-align: middle;
-    border-color: #f1f5f9 !important;
-    font-size: 0.84rem;
-}
-
-.iosindicators-table tbody tr:hover td {
-    background: #f8fafc;
-}
-
-/* ===================================================
-   EMPTY STATE / DEFINIÇÕES
-=================================================== */
-.iosindicators-empty-state {
-    min-height: 140px;
+.ios-donut-center {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    color: var(--text-muted);
+    pointer-events: none;
 }
+.ios-donut-center strong { color: var(--text-main); font-size: 1.45rem; font-weight: 800; line-height: 1; }
+.ios-donut-center span { margin-top: 5px; color: var(--text-muted); font-size: .72rem; }
+.ios-donut-legend { display: flex; flex-direction: column; gap: 9px; }
+.ios-donut-legend-row { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 8px; min-width: 0; }
+.ios-donut-dot { width: 9px; height: 9px; border-radius: 50%; }
+.ios-donut-legend-label { overflow: hidden; color: #334155; font-size: .80rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.ios-donut-legend-value { color: var(--text-muted); font-size: .76rem; font-weight: 650; white-space: nowrap; }
 
-.iosindicators-empty-state i {
-    font-size: 28px;
+/* Tabela ranking */
+.ios-ranking-table { width: 100%; border-collapse: collapse; }
+.ios-ranking-table th {
+    padding: 0 10px 9px;
     color: var(--text-subtle);
+    font-size: .68rem;
+    font-weight: 750;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    border: 0;
 }
-
-.iosindicators-definitions {
-    margin: 0;
+.ios-ranking-table td { padding: 10px; border-top: 1px solid #f1f5f9; vertical-align: middle; }
+.ios-ranking-table tbody tr:hover { background: #f8fafc; }
+.ios-rank-pos {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: .75rem;
+    font-weight: 800;
 }
+.ios-rank-name { color: var(--text-strong); font-size: .82rem; font-weight: 650; }
+.ios-rank-count { color: var(--text-main); font-size: .84rem; font-weight: 750; text-align: right; }
+.ios-rank-share { color: var(--text-muted); font-size: .76rem; text-align: right; white-space: nowrap; }
 
-.iosindicators-definitions td {
-    padding: 9px 6px;
-    vertical-align: top;
-    border-color: #f1f5f9;
-    color: var(--text-muted);
-    font-size: 0.80rem;
-}
+/* Mini estatísticas */
+.ios-mini-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.ios-mini-stat { padding: 10px 12px; border: 1px solid #eef2f7; border-radius: 9px; background: #fbfdff; }
+.ios-mini-stat span { display: block; color: var(--text-subtle); font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.ios-mini-stat strong { display: block; margin-top: 3px; color: var(--text-main); font-size: .94rem; }
 
-.iosindicators-definitions td:first-child {
-    width: 110px;
-    color: var(--text-main);
-}
+/* Tabelas gerais */
+.iosindicators-table thead th { padding: 11px 12px; color: var(--text-subtle); background: #f8fafc; font-size: .68rem; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; border-bottom: 1px solid var(--border-color); }
+.iosindicators-table td { padding: 11px 12px; color: #334155; font-size: .80rem; vertical-align: middle; border-color: #f1f5f9; }
+.iosindicators-table tbody tr:hover { background: #f8fafc; }
+.iosindicators-definitions td { padding: 9px 7px; vertical-align: top; font-size: .80rem; border-color: #f1f5f9; }
 
-/* ===================================================
-   WIDGET NATIVO
-=================================================== */
-.iosindicators-native-card {
-    border: 1px solid var(--border-color) !important;
-    border-radius: var(--radius-lg) !important;
-    box-shadow: var(--shadow-sm) !important;
-}
+.iosindicators-empty-state { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text-subtle); }
+.iosindicators-empty-state i { font-size: 26px; opacity: .7; }
+.iosindicators-native-card .card-body { padding: 12px; }
 
-.iosindicators-native-card .card-body {
-    padding: 14px !important;
-}
-
-/* ===================================================
-   RESPONSIVIDADE
-=================================================== */
 @media (max-width: 1280px) {
     .iosindicators-grid,
-    .iosindicators-grid-headline,
     .iosindicators-grid-performance,
     .iosindicators-grid-quality,
-    .iosindicators-grid-realtime {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
+    .iosindicators-grid-realtime { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #tab-executiva .ios-exec-wide,
+    #tab-executiva .ios-exec-narrow { grid-column: span 6; }
 }
 
-@media (max-width: 1100px) {
-    .iosindicators-wrapper > .d-flex.flex-wrap.align-items-center.justify-content-between {
-        align-items: stretch !important;
-        flex-direction: column;
-    }
-
-    .iosindicators-filter {
-        width: 100%;
-    }
-
-    .iosindicators-chip-group {
-        justify-content: flex-start;
-    }
-
-    .iosindicators-chip {
-        text-align: left;
-    }
-
-    .iosindicators-grid,
-    .iosindicators-grid-headline,
-    .iosindicators-grid-performance,
-    .iosindicators-grid-quality,
-    .iosindicators-grid-realtime {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+@media (max-width: 992px) {
+    .iosindicators-wrapper > .d-flex.flex-wrap.align-items-center.justify-content-between { align-items: stretch !important; }
+    .iosindicators-filter { width: 100%; }
+    .iosindicators-chip-group { justify-content: flex-start; }
+    #tab-executiva .ios-executive-board { grid-template-columns: 1fr; }
+    #tab-executiva .ios-exec-wide,
+    #tab-executiva .ios-exec-narrow,
+    #tab-executiva .ios-exec-half { grid-column: auto; }
+    #tab-executiva .ios-exec-secondary-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
-    .iosindicators-filter {
-        align-items: stretch !important;
-        flex-direction: column;
-    }
-
-    .iosindicators-filter .form-control,
-    .iosindicators-filter .form-select,
-    .iosindicators-filter .btn-primary {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .iosindicators-tabs .nav {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .iosindicators-tab-btn {
-        width: 100%;
-        padding: 10px 8px !important;
-    }
-
-    .iosindicators-tab-btn span {
-        display: inline;
-        font-size: 0.80rem;
-    }
-
-    .iosindicators-hero .card-body {
-        padding: 18px !important;
-    }
-
-    .iosindicators-chip-group {
-        width: 100%;
-        gap: 10px;
-    }
-
-    .iosindicators-chip {
-        min-width: 0;
-        flex: 1 1 140px;
-        padding-left: 12px;
-    }
-
     .iosindicators-grid,
-    .iosindicators-grid-headline,
     .iosindicators-grid-performance,
     .iosindicators-grid-quality,
     .iosindicators-grid-realtime,
-    .iosindicators-grid-compact {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .iosindicators-wrapper .iosindicators-kpi {
-        min-height: 185px;
-        padding: 20px !important;
-    }
-}
-
-@media (max-width: 480px) {
-    .iosindicators-tabs .nav {
-        grid-template-columns: 1fr;
-    }
-
-    .iosindicators-chip-group {
-        flex-direction: column;
-    }
-
-    .iosindicators-chip {
-        width: 100%;
-    }
+    .iosindicators-grid-compact { grid-template-columns: 1fr; }
+    .iosindicators-filter { align-items: stretch !important; }
+    .iosindicators-filter > div,
+    .iosindicators-filter .form-control,
+    .iosindicators-filter .form-select,
+    .iosindicators-filter .btn-primary { width: 100%; min-width: 0; }
+    .iosindicators-tab-btn { min-height: 40px; padding: 8px 10px !important; }
+    .iosindicators-tab-btn span { display: none; }
+    .iosindicators-hero .card-body { padding: 16px !important; }
+    .iosindicators-chip { min-width: 45%; }
+    .ios-donut-card .card-body { grid-template-columns: 1fr; }
+    .ios-mini-stats { grid-template-columns: 1fr; }
 }
