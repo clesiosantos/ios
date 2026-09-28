@@ -8,7 +8,7 @@ use GlpiPlugin\Iosindicators\Dashboard;
 /**
  * IOS Indicators - Indicadores operacionais e classificação de incidentes para GLPI 11.
  */
-define('PLUGIN_IOSINDICATORS_VERSION', '0.8.1');
+define('PLUGIN_IOSINDICATORS_VERSION', '0.8.2');
 define('PLUGIN_IOSINDICATORS_MIN_GLPI_VERSION', '11.0.0');
 define('PLUGIN_IOSINDICATORS_MAX_GLPI_VERSION', '11.0.99');
 
