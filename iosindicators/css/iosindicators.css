@@ -1,46 +1,87 @@
 .iosindicators-wrapper {
-    --ios-kpi-radius: 10px;
+    --ios-kpi-radius: 16px;
+    --ios-shadow: 0 12px 28px rgba(15, 23, 42, .08);
+    --ios-border: 1px solid rgba(148, 163, 184, .22);
+}
+
+.iosindicators-page {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.iosindicators-section-title h3 {
+    margin: 0 0 4px;
+    font-size: 1.15rem;
+}
+
+.iosindicators-section-title p {
+    margin: 0;
+    color: var(--tblr-muted, #667085);
 }
 
 .iosindicators-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
 }
 
 .iosindicators-grid-compact {
-    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.iosindicators-grid-headline {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.iosindicators-grid-performance,
+.iosindicators-grid-quality {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
 .iosindicators-kpi {
     position: relative;
-    min-height: 118px;
-    padding: 14px 14px 12px;
+    min-height: 138px;
+    padding: 16px 16px 14px;
     border-radius: var(--ios-kpi-radius);
-    border: 1px solid rgba(0, 0, 0, .06);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+    border: var(--ios-border);
+    box-shadow: var(--ios-shadow);
     overflow: hidden;
 }
 
 .iosindicators-grid-compact .iosindicators-kpi {
-    min-height: 100px;
+    min-height: 108px;
     padding: 12px;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, .06);
+}
+
+.iosindicators-kpi::after {
+    content: "";
+    position: absolute;
+    right: -24px;
+    bottom: -24px;
+    width: 82px;
+    height: 82px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .18);
 }
 
 .iosindicators-kpi-icon {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    font-size: 22px;
-    opacity: .75;
+    top: 14px;
+    right: 14px;
+    font-size: 24px;
+    opacity: .78;
 }
 
 .iosindicators-kpi-value {
-    font-size: clamp(24px, 2.1vw, 38px);
-    line-height: 1.05;
-    letter-spacing: -.02em;
-    font-weight: 500;
-    padding-right: 28px;
+    font-size: clamp(24px, 2.2vw, 40px);
+    line-height: 1.02;
+    letter-spacing: -.03em;
+    font-weight: 700;
+    padding-right: 32px;
+    position: relative;
+    z-index: 1;
 }
 
 .iosindicators-grid-compact .iosindicators-kpi-value {
@@ -48,61 +89,138 @@
 }
 
 .iosindicators-kpi-label {
-    margin-top: 12px;
+    margin-top: 14px;
     font-size: 15px;
-    opacity: .86;
+    font-weight: 600;
+    position: relative;
+    z-index: 1;
 }
 
-.iosindicators-tone-yellow { background: #ffdc65; color: #6c5710; }
-.iosindicators-tone-green  { background: #6fd166; color: #194d1a; }
-.iosindicators-tone-orange { background: #ffca7b; color: #8b5200; }
-.iosindicators-tone-cyan   { background: #e9f6fb; color: #3b9fc0; }
-.iosindicators-tone-blue   { background: #669bd4; color: #103f6d; }
-.iosindicators-tone-gray   { background: #d7d7d7; color: #626262; }
-.iosindicators-tone-light  { background: #f4f4f4; color: #8b8b8b; }
-.iosindicators-tone-indigo { background: #e9e7ff; color: #4f46a5; }
-.iosindicators-tone-teal   { background: #dff7f4; color: #12786d; }
-.iosindicators-tone-purple { background: #f1e8fb; color: #7040a0; }
-.iosindicators-tone-pink   { background: #fde8f0; color: #a23b68; }
-.iosindicators-tone-slate  { background: #e7ebef; color: #44515d; }
-.iosindicators-tone-success{ background: #e2f5e7; color: #24723a; }
-.iosindicators-tone-dark   { background: #313946; color: #fff; }
-
-.iosindicators-quality {
-    display: grid;
-    gap: 10px;
+.iosindicators-kpi-meta {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.35;
+    opacity: .88;
+    position: relative;
+    z-index: 1;
 }
 
-.iosindicators-quality > div {
+.iosindicators-tone-yellow { background: linear-gradient(135deg, #ffe48f, #ffd45e); color: #664c00; }
+.iosindicators-tone-green  { background: linear-gradient(135deg, #7be18a, #46c466); color: #124b23; }
+.iosindicators-tone-orange { background: linear-gradient(135deg, #ffd6a0, #ffb85c); color: #7a4500; }
+.iosindicators-tone-cyan   { background: linear-gradient(135deg, #e9f6fb, #d8eef6); color: #2f7f98; }
+.iosindicators-tone-blue   { background: linear-gradient(135deg, #7db4f0, #5a90d6); color: #0e3b63; }
+.iosindicators-tone-gray   { background: linear-gradient(135deg, #f1f4f7, #e6eaef); color: #52606d; }
+.iosindicators-tone-light  { background: linear-gradient(135deg, #fbfcfd, #f3f6f9); color: #6b7280; }
+.iosindicators-tone-indigo { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #4636a2; }
+.iosindicators-tone-teal   { background: linear-gradient(135deg, #e2f7f4, #d1f0ea); color: #0e6b61; }
+.iosindicators-tone-purple { background: linear-gradient(135deg, #f1e8fb, #e8ddfa); color: #6b3fa2; }
+.iosindicators-tone-pink   { background: linear-gradient(135deg, #fde8f0, #fbd6e5); color: #9a3a64; }
+.iosindicators-tone-slate  { background: linear-gradient(135deg, #edf2f7, #dfe6ee); color: #475569; }
+.iosindicators-tone-success{ background: linear-gradient(135deg, #e1f8e7, #cff0d8); color: #1f6a37; }
+.iosindicators-tone-dark   { background: linear-gradient(135deg, #334155, #1f2937); color: #fff; }
+
+.iosindicators-panel {
+    border: var(--ios-border);
+    box-shadow: var(--ios-shadow);
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+.iosindicators-panel .card-header {
+    background: #fff;
+    border-bottom: 1px solid rgba(148, 163, 184, .18);
+    padding: 14px 16px;
+}
+
+.iosindicators-panel .card-body {
+    padding: 14px 16px 16px;
+}
+
+.iosindicators-panel-title {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    padding-bottom: 9px;
-    border-bottom: 1px solid var(--tblr-border-color, #ddd);
+    gap: 12px;
+    align-items: flex-start;
 }
 
-.iosindicators-quality > div:last-child {
-    border-bottom: 0;
-    padding-bottom: 0;
+.iosindicators-panel-title > i {
+    font-size: 22px;
+    color: var(--tblr-primary, #3b82f6);
+}
+
+.iosindicators-bar-row + .iosindicators-bar-row {
+    margin-top: 14px;
+}
+
+.iosindicators-bar-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.iosindicators-bar-label {
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.iosindicators-bar-value {
+    color: #475569;
+    white-space: nowrap;
+}
+
+.iosindicators-bar-value small {
+    color: #64748b;
+}
+
+.iosindicators-progress {
+    height: 10px;
+    border-radius: 999px;
+    background: #eef2f7;
+    overflow: hidden;
+}
+
+.iosindicators-progress .progress-bar {
+    border-radius: 999px;
+    background: linear-gradient(90deg, #4f46e5, #0ea5e9);
+}
+
+.iosindicators-definitions td {
+    vertical-align: top;
 }
 
 .iosindicators-filter .form-control,
 .iosindicators-filter .form-select {
-    min-width: 135px;
+    min-width: 138px;
 }
 
 .iosindicators-native-card .card-body {
     padding: 12px;
 }
 
+@media (max-width: 992px) {
+    .iosindicators-grid,
+    .iosindicators-grid-headline,
+    .iosindicators-grid-performance,
+    .iosindicators-grid-quality {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 768px) {
     .iosindicators-grid,
+    .iosindicators-grid-headline,
+    .iosindicators-grid-performance,
+    .iosindicators-grid-quality,
     .iosindicators-grid-compact {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .iosindicators-filter {
         width: 100%;
+    }
+
+    .iosindicators-kpi {
+        min-height: 124px;
     }
 }

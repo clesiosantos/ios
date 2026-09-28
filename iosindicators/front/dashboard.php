@@ -18,6 +18,10 @@ Html::header(
     ''
 );
 
+// Carregamento explícito do CSS para evitar que cache/hook do GLPI deixe o painel sem estilo.
+global $CFG_GLPI;
+echo '<link rel="stylesheet" href="' . htmlescape($CFG_GLPI['root_doc'] . '/plugins/iosindicators/css/iosindicators.css?v=' . PLUGIN_IOSINDICATORS_VERSION) . '">';
+
 try {
     [$from, $to] = Metrics::periodFromRequest($_GET);
     $summary = Metrics::summary($from, $to);
@@ -25,7 +29,7 @@ try {
     echo '<div class="container-fluid py-3 iosindicators-wrapper">';
     echo '<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">';
     echo '<div><h2 class="mb-1">Indicadores Operacionais de Incidentes</h2>';
-    echo '<div class="text-muted">Ciclo Zabbix → GLPI → Tratativa → Normalização → RCA / Base de Conhecimento</div></div>';
+    echo '<div class="text-muted">Confiabilidade, desempenho, recorrência e qualidade estrutural dos tickets monitorados</div></div>';
 
     echo '<form method="get" class="d-flex flex-wrap align-items-end gap-2 iosindicators-filter">';
     echo '<div><label class="form-label mb-1">Período rápido</label><select class="form-select" name="days">';

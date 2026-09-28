@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+- Novo dashboard executivo e operacional, com organização em blocos de visão executiva, velocidade operacional, qualidade do dado e distribuição analítica.
+- Novos indicadores de confiabilidade e manutenção: MTBF, MTBR, disponibilidade estimada, P50, P90 e P95 do tempo até solução.
+- Indicadores de qualidade estrutural: cobertura de categoria, ativo, requester, assigned group e cobertura estruturada completa.
+- Indicadores de recorrência: hosts reincidentes, percentual de tickets recorrentes, top clientes, top hosts e top eventos.
+- Distribuições por status, severidade e tipo de equipamento.
+- Cards com metadados explicativos e interface responsiva com barras de distribuição.
+- Cálculos mantidos exclusivamente sobre dados do GLPI 11, sem consultar ou alterar a API do Zabbix.
+- Disponibilidade estimada calculada como MTBF / (MTBF + MTTR).
+- MTBF calculado por host entre o fim de uma ocorrência e a abertura da próxima; MTBR entre os reparos concluídos do mesmo host.
+
 ## 0.2.3
 - Extração automática do cliente pelo nome do host (`CLIENTE-XX-*`) e inclusão como grupo Requester do ticket.
 - Criação/reutilização do grupo raiz `NOC` e de subgrupos conforme o tipo lógico do host.
