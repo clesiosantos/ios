@@ -1,39 +1,36 @@
 <?php
 
-/**
- * Instalação: não cria tabelas próprias. As configurações ficam em glpi_configs.
- */
+use GlpiPlugin\Iosindicators\Classifier;
+use GlpiPlugin\Iosindicators\Settings;
+
 function plugin_iosindicators_install(): bool
 {
-    $defaults = [
-        'default_period_days' => 30,
-        'ai_task_tag'         => '[IA-RCA]',
-        'remote_task_tag'     => '[REMOTO]',
-        'zabbix_marker'       => 'Zabbix',
-        'mbtr_source'         => 'none',
-        'show_only_incidents' => 1,
-    ];
-
-    $current = Config::getConfigurationValues('plugin:iosindicators');
+    $current = Config::getConfigurationValues(Settings::CONTEXT);
     $missing = [];
 
-    foreach ($defaults as $key => $value) {
+    foreach (Settings::defaults() as $key => $value) {
         if (!array_key_exists($key, $current)) {
             $missing[$key] = $value;
         }
     }
 
     if ($missing !== []) {
-        Config::setConfigurationValues('plugin:iosindicators', $missing);
+        Config::setConfigurationValues(Settings::CONTEXT, $missing);
     }
+
+    // Ação automática visível em Configuração > Ações automáticas.
+    // Frequência mínima sugerida: 5 minutos.
+    CronTask::Register(Classifier::class, 'Classifier', 300);
 
     return true;
 }
 
 function plugin_iosindicators_uninstall(): bool
 {
+    CronTask::unregister('iosindicators');
+
     $config = new Config();
-    $config->deleteByCriteria(['context' => 'plugin:iosindicators']);
+    $config->deleteByCriteria(['context' => Settings::CONTEXT]);
 
     return true;
 }
