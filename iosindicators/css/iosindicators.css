@@ -1,0 +1,108 @@
+.iosindicators-wrapper {
+    --ios-kpi-radius: 10px;
+}
+
+.iosindicators-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: 12px;
+}
+
+.iosindicators-grid-compact {
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+}
+
+.iosindicators-kpi {
+    position: relative;
+    min-height: 118px;
+    padding: 14px 14px 12px;
+    border-radius: var(--ios-kpi-radius);
+    border: 1px solid rgba(0, 0, 0, .06);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+    overflow: hidden;
+}
+
+.iosindicators-grid-compact .iosindicators-kpi {
+    min-height: 100px;
+    padding: 12px;
+}
+
+.iosindicators-kpi-icon {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 22px;
+    opacity: .75;
+}
+
+.iosindicators-kpi-value {
+    font-size: clamp(24px, 2.1vw, 38px);
+    line-height: 1.05;
+    letter-spacing: -.02em;
+    font-weight: 500;
+    padding-right: 28px;
+}
+
+.iosindicators-grid-compact .iosindicators-kpi-value {
+    font-size: clamp(22px, 1.8vw, 32px);
+}
+
+.iosindicators-kpi-label {
+    margin-top: 12px;
+    font-size: 15px;
+    opacity: .86;
+}
+
+.iosindicators-tone-yellow { background: #ffdc65; color: #6c5710; }
+.iosindicators-tone-green  { background: #6fd166; color: #194d1a; }
+.iosindicators-tone-orange { background: #ffca7b; color: #8b5200; }
+.iosindicators-tone-cyan   { background: #e9f6fb; color: #3b9fc0; }
+.iosindicators-tone-blue   { background: #669bd4; color: #103f6d; }
+.iosindicators-tone-gray   { background: #d7d7d7; color: #626262; }
+.iosindicators-tone-light  { background: #f4f4f4; color: #8b8b8b; }
+.iosindicators-tone-indigo { background: #e9e7ff; color: #4f46a5; }
+.iosindicators-tone-teal   { background: #dff7f4; color: #12786d; }
+.iosindicators-tone-purple { background: #f1e8fb; color: #7040a0; }
+.iosindicators-tone-pink   { background: #fde8f0; color: #a23b68; }
+.iosindicators-tone-slate  { background: #e7ebef; color: #44515d; }
+.iosindicators-tone-success{ background: #e2f5e7; color: #24723a; }
+.iosindicators-tone-dark   { background: #313946; color: #fff; }
+
+.iosindicators-quality {
+    display: grid;
+    gap: 10px;
+}
+
+.iosindicators-quality > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--tblr-border-color, #ddd);
+}
+
+.iosindicators-quality > div:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
+.iosindicators-filter .form-control,
+.iosindicators-filter .form-select {
+    min-width: 135px;
+}
+
+.iosindicators-native-card .card-body {
+    padding: 12px;
+}
+
+@media (max-width: 768px) {
+    .iosindicators-grid,
+    .iosindicators-grid-compact {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .iosindicators-filter {
+        width: 100%;
+    }
+}
