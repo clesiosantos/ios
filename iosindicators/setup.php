@@ -7,7 +7,7 @@ use GlpiPlugin\Iosindicators\Dashboard;
 /**
  * IOS Indicators - Indicadores operacionais e classificação de incidentes para GLPI 11.
  */
-define('PLUGIN_IOSINDICATORS_VERSION', '0.7.0');
+define('PLUGIN_IOSINDICATORS_VERSION', '0.7.1');
 define('PLUGIN_IOSINDICATORS_MIN_GLPI_VERSION', '11.0.0');
 define('PLUGIN_IOSINDICATORS_MAX_GLPI_VERSION', '11.0.99');
 
@@ -36,7 +36,8 @@ function plugin_init_iosindicators(): void
             $PLUGIN_HOOKS['config_page']['iosindicators'] = 'front/config.php';
         }
 
-        $PLUGIN_HOOKS['add_css']['iosindicators'] = 'css/iosindicators.css';
+        // O dashboard carrega o CSS no lado do servidor (inline) para evitar 404
+        // em instalações GLPI 11 onde /plugins/<plugin>/css não é publicado pelo webroot.
     }
 
     $PLUGIN_HOOKS['dashboard_types']['iosindicators'] = [Dashboard::class, 'dashboardTypes'];
