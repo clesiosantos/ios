@@ -1,106 +1,144 @@
 # IOS - Indicadores de Incidentes para GLPI 11
 
-Plugin para consolidar indicadores operacionais do ciclo de vida de incidentes no GLPI 11 e preparar o histórico de tratativas para RCA, Post-Mortem e futura Base de Conhecimento assistida por IA.
+Plugin para consolidar indicadores operacionais do ciclo de vida de incidentes no GLPI 11, classificar tickets de monitoramento e preparar o histórico para RCA, Post-Mortem, recorrência e indicadores como MTTR/MTBF/MTBR.
 
-## Escopo da versão 0.1.2
+## Escopo da versão 0.2.0
 
+### Dashboard
 - Dashboard próprio com filtros por período.
 - Widget nativo para o Dashboard do GLPI.
-- Cards no estilo executivo/operacional: Incidentes, Novos, Pendentes, Atribuídos, Planejados, Solucionados e Fechados.
-- TTO médio a partir de `glpi_tickets.takeintoaccount_delay_stat`.
-- TTS médio a partir de `glpi_tickets.solve_delay_stat`.
-- MTTR como média do tempo até solução dos tickets solucionados no recorte.
-- TMA como média de `glpi_tickets.actiontime`.
-- Tempo total médio do incidente entre abertura e solução/fechamento.
-- Tempo médio em espera.
-- MBTR configurável, pois a reunião não fechou a fórmula/nomenclatura operacional.
-- Cobertura de tarefas marcadas para IA/RCA.
-- Percentual de RCA completa, exigindo na tarefa marcada os termos Diagnóstico, Causa e Solução.
-- Contagem de atividades remotas pela etiqueta configurada.
-- Respeita as entidades ativas da sessão GLPI.
-- Por segurança, a consolidação exige a permissão **Ver todos os tickets (READALL)**.
-- Compatível com a restrição do GLPI 11 contra SQL direto: o plugin usa `$DB->request()`/DB iterator e não usa `DBmysql->query()`.
+- Cards de volume/status e indicadores operacionais existentes.
+- Compatível com a restrição do GLPI 11 contra SQL direto: usa `$DB->request()`/DB iterator.
 
-## Padrão recomendado para a tarefa de IA
+### Classificador automático
+A versão 0.2.0 começa a estruturar os tickets que já chegam do Zabbix sem consultar a API do Zabbix.
 
-Exemplo de tarefa dentro do ticket:
+Formato reconhecido atualmente:
 
 ```text
-[IA-RCA]
-Diagnóstico: serviço nginx sem resposta.
-Evidências: timeout na porta 443 e erro no upstream.
-Causa: processo php-fpm indisponível.
-Solução: reinicialização controlada do php-fpm.
-Comandos: systemctl restart php-fpm
-Recomendação: criar alerta preventivo de saturação.
+Problem: SIM | CLIENTE-19-SRV-003 | cpu_high | CPU utilization high
 ```
 
-Quando houver execução remota, incluir também a etiqueta configurada, por padrão:
+Dados adicionais lidos do conteúdo quando presentes:
 
 ```text
-[REMOTO]
+Problem started at 09:03:22 on 2026.09.28
+Host: CLIENTE-19-SRV-003
+Severity: Average
+Original problem ID: 1686
 ```
 
-## Instalação
+O classificador pode:
+- criar/associar categorias ITIL;
+- criar hosts como ativos GLPI do tipo `Computer`;
+- associar o ativo ao ticket com `Item_Ticket`;
+- processar tickets novos imediatamente;
+- processar o histórico em lotes, inclusive `Solved` e `Closed`;
+- preservar categorias manuais quando a opção de sobrescrita estiver desligada.
 
-1. Copie a pasta `iosindicators` para `GLPI_ROOT/plugins/iosindicators`.
-2. Garanta que o diretório esteja disponível/persistido no volume do contêiner.
-3. Acesse **Configuração > Plugins**.
-4. Instale e habilite **IOS - Indicadores de Incidentes**.
-5. Em **Configuração > Plugins > IOS - Indicadores**, ajuste as etiquetas e o período padrão.
-6. Acesse **Plugins > Indicadores de Incidentes**.
-7. No Dashboard nativo, adicione o card **Indicadores Operacionais - Incidentes**.
+## Mapa inicial de categorias
 
-## Diretório em Docker
+| Evento | Categoria GLPI |
+|---|---|
+| `cpu_high` | Monitoramento > CPU > Utilização alta |
+| `memory_high` | Monitoramento > Memória > Utilização alta |
+| `disk_full` | Monitoramento > Armazenamento > Espaço insuficiente |
+| `service_down` | Monitoramento > Disponibilidade > Serviço indisponível |
+| `host_unavailable` | Monitoramento > Disponibilidade > Host indisponível |
+| `packet_loss` | Monitoramento > Rede > Perda de pacotes |
+| `latency_high` | Monitoramento > Rede > Latência elevada |
 
-Para desenvolvimento e persistência do plugin, o volume mais importante é o diretório de plugins do GLPI, normalmente:
+Eventos desconhecidos são classificados em:
 
 ```text
-/var/www/html/glpi/plugins
+Monitoramento > Outros > <evento>
 ```
 
-ou o caminho equivalente da imagem utilizada. O diretório `iosindicators` deve existir como subdiretório direto de `plugins`.
+## Ação Automática
 
-## Fórmulas / interpretação
+Na instalação/atualização do plugin é registrada a ação:
+
+```text
+Classifier
+```
+
+Frequência padrão registrada: 300 segundos (5 minutos).
+
+A ação lê tickets em lotes e mantém um cursor interno (`classifier_cursor_id`) para não reprocessar todo o histórico em cada execução.
+
+Além do cron, existe um hook de criação de ticket para classificação imediata quando habilitado.
+
+## Configuração
+
+Em **Configuração > Plugins > IOS - Indicadores**, a versão 0.2.0 adiciona:
+
+- habilitar/desabilitar classificador;
+- classificação imediata de tickets novos;
+- criação automática de categorias;
+- criação automática de hosts;
+- sobrescrita ou preservação de categoria existente;
+- tamanho do lote;
+- categoria raiz;
+- botão para processar um lote manualmente;
+- botão para reiniciar o cursor e reavaliar o histórico.
+
+O classificador vem desabilitado por padrão após a atualização. Recomenda-se primeiro executar um lote manual pequeno, validar os objetos criados e depois habilitar a ação automática.
+
+## Atualização pelo Git
+
+No servidor de desenvolvimento:
+
+```bash
+cd /opt/glpi/repos/ios
+git pull origin main
+
+rsync -av --delete \
+  iosindicators/ \
+  /opt/glpi/glpi11/plugins/iosindicators/
+```
+
+Depois acesse **Configuração > Plugins** e execute a atualização do plugin para que a Ação Automática seja registrada.
+
+## Fórmulas / interpretação atuais
 
 | Indicador | Fonte inicial |
 |---|---|
 | TTO | `takeintoaccount_delay_stat` |
 | TTS | `solve_delay_stat` |
-| MTTR | média do `solve_delay_stat` dos tickets resolvidos |
+| MTTR | média do `solve_delay_stat` dos tickets resolvidos na versão atual do dashboard |
 | TMA | `actiontime` |
-| MBTR | configurável; não definido no projeto até o momento |
 | RCA completa | tarefa `[IA-RCA]` contendo Diagnóstico + Causa + Solução |
 | Ações remotas | tarefas contendo `[REMOTO]` |
 
-### Observação sobre TTS x MTTR
+## Próxima etapa de indicadores
 
-Na versão 0.1, TTS médio e MTTR usam a mesma base temporal do GLPI (`solve_delay_stat`). Isso é intencional até o projeto fechar uma definição distinta de MTTR (por exemplo, tempo técnico ativo, tempo após início de atendimento ou tempo de indisponibilidade confirmado pelo Zabbix).
+Com host e categoria estruturados, a próxima versão deve calcular:
 
-## Compatibilidade com GLPI 11
+- MTTR por host/categoria/evento;
+- MTBF por host;
+- MTBR por host;
+- disponibilidade estimada;
+- número de falhas por host;
+- recorrência por host + evento;
+- ranking de ativos com menor MTBF e maior MTTR.
 
-O GLPI 11 bloqueia consultas SQL diretas feitas com `DBmysql->query()`. A versão 0.1.2 usa exclusivamente o mecanismo suportado pelo GLPI, com `$DB->request()`, e realiza as agregações dos indicadores em PHP. As tarefas de RCA/IA são lidas em lotes para não gerar consultas `IN` excessivamente grandes.
-
-## Próximas evoluções
-
-- Separar `data/hora do evento Zabbix`, `data/hora de criação no GLPI`, `início da tratativa` e `normalização` quando o payload/integração do Zabbix for padronizado.
-- Filtro explícito “Origem Zabbix”.
-- Correlação de incidentes repetidos por CI/serviço/categoria.
-- Post-Mortem automático.
-- Índice de incidentes conhecidos.
-- Sugestão de solução com base em incidentes anteriores.
-- Endpoint/serviço para IA consultar o pacote estruturado do incidente.
-- Automação somente com procedimentos previamente homologados.
+O horário `Problem started at ...` já é extraído pelo parser e será usado na próxima etapa após validarmos o tratamento de timezone entre a origem do evento e o GLPI.
 
 ## Compatibilidade
 
 - GLPI >= 11.0.0 e < 11.0.99
 - PHP >= 8.2
 
+## Diagnóstico
+
+Se o painel apresentar erro, acesse:
+
+```text
+plugins/iosindicators/front/diagnostics.php
+```
+
+como Super-Admin.
+
 ## Licença
 
 GPLv3+
-
-## Diagnóstico
-
-Se o painel apresentar erro, acesse `plugins/iosindicators/front/diagnostics.php` como Super-Admin. A página valida o schema do GLPI e exibe avisos das consultas sem exigir acesso direto ao banco.
