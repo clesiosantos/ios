@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+- Corrigida a tela de configuração/execução manual no GLPI 11 que retornava `The action you have requested is not allowed`.
+- Removida a validação CSRF duplicada do `front/config.php`; o GLPI 11 já valida requisições POST no `CheckCsrfListener` antes de carregar a página legada.
+- Mantido o token CSRF no formulário, que continua sendo validado normalmente pelo núcleo do GLPI.
+
 ## 0.2.0
 - Adicionado classificador automático de tickets de monitoramento usando apenas os dados já presentes no GLPI.
 - Parser do padrão `Problem: SIM | HOST | evento | descrição`.
