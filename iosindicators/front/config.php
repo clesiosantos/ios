@@ -120,7 +120,7 @@ echo '<div class="col-md-2"><label class="form-label">Contexto máx.</label><inp
 echo '<div class="col-md-2"><label class="form-label">Timeout</label><input class="form-control" type="number" min="10" max="120" name="ai_rca_timeout_seconds" value="' . (int)$config['ai_rca_timeout_seconds'] . '"><div class="form-text">Segundos.</div></div>';
 echo '</div>';
 
-echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong> não é salvo no banco nem no GitHub. Configure <code>GEMINI_API_KEY</code> no ambiente do PHP/Apache/PHP-FPM ou no arquivo <code>/etc/glpi/iosindicators.env</code> com permissão restrita. Exemplo: <code>GEMINI_API_KEY="sua-chave"</code>.</div>';
+echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong> não é salvo no banco nem no GitHub. No Docker atual o host <code>/opt/glpi/glpi11/config</code> está montado em <code>/var/glpi/config</code>. O plugin procura primeiro <code>GEMINI_API_KEY</code> no ambiente e depois em <code>/var/glpi/config/iosindicators.env</code> ou <code>/var/glpi/config/.env</code>.</div>';
 echo '<div class="alert alert-secondary"><strong>Tempo IA:</strong> a task criada contém <code>Tempo estimado IA (segundos)</code>, porém o campo <code>actiontime</code> da task fica em zero. O dashboard usa a estimativa separadamente para não contaminar o tempo real de trabalho do GLPI.</div>';
 
 echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
