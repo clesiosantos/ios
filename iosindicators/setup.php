@@ -8,7 +8,7 @@ use GlpiPlugin\Iosindicators\Dashboard;
 /**
  * IOS Indicators - Indicadores operacionais e classificação de incidentes para GLPI 11.
  */
-define('PLUGIN_IOSINDICATORS_VERSION', '0.8.2');
+define('PLUGIN_IOSINDICATORS_VERSION', '0.8.3');
 define('PLUGIN_IOSINDICATORS_MIN_GLPI_VERSION', '11.0.0');
 define('PLUGIN_IOSINDICATORS_MAX_GLPI_VERSION', '11.0.99');
 
@@ -18,10 +18,6 @@ define('PLUGIN_IOSINDICATORS_MAX_GLPI_VERSION', '11.0.99');
  * Ambiente Docker atual:
  *   host:      /opt/glpi/glpi11/config
  *   container: /var/glpi/config
- *
- * A chave GEMINI_API_KEY continua podendo ser fornecida diretamente pelo
- * ambiente do PHP/Apache/PHP-FPM. O arquivo local só é usado quando a variável
- * ainda não está disponível no processo.
  */
 function plugin_iosindicators_load_local_env(): void
 {
@@ -32,13 +28,10 @@ function plugin_iosindicators_load_local_env(): void
     $candidates = [
         '/var/glpi/config/iosindicators.env',
         '/var/glpi/config/.env',
-        // Fallback útil quando o plugin for executado diretamente no host.
         '/opt/glpi/glpi11/config/iosindicators.env',
         '/opt/glpi/glpi11/config/.env',
     ];
 
-    // Também aceita qualquer arquivo *.env já existente no volume de configuração,
-    // desde que contenha a chave GEMINI_API_KEY.
     foreach (['/var/glpi/config/*.env', '/opt/glpi/glpi11/config/*.env'] as $pattern) {
         $matches = glob($pattern) ?: [];
         foreach ($matches as $match) {
@@ -82,7 +75,6 @@ function plugin_init_iosindicators(): void
     Plugin::registerClass(Classifier::class);
     Plugin::registerClass(AiRca::class);
 
-    // Classificação imediata de tickets novos. A rotina nunca bloqueia a criação do ticket.
     $PLUGIN_HOOKS[Hooks::ITEM_ADD]['iosindicators'] = [
         Ticket::class => [Classifier::class, 'onTicketAdd'],
     ];
@@ -97,9 +89,6 @@ function plugin_init_iosindicators(): void
         if (Session::haveRight('config', UPDATE)) {
             $PLUGIN_HOOKS['config_page']['iosindicators'] = 'front/config.php';
         }
-
-        // O dashboard carrega o CSS no lado do servidor (inline) para evitar 404
-        // em instalações GLPI 11 onde /plugins/<plugin>/css não é publicado pelo webroot.
     }
 
     $PLUGIN_HOOKS['dashboard_types']['iosindicators'] = [Dashboard::class, 'dashboardTypes'];
