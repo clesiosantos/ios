@@ -1,5 +1,6 @@
 <?php
 
+use GlpiPlugin\Iosindicators\AiRca;
 use GlpiPlugin\Iosindicators\Classifier;
 use GlpiPlugin\Iosindicators\Settings;
 
@@ -18,9 +19,9 @@ function plugin_iosindicators_install(): bool
         Config::setConfigurationValues(Settings::CONTEXT, $missing);
     }
 
-    // Ação automática visível em Configuração > Ações automáticas.
-    // Frequência mínima sugerida: 5 minutos.
+    // Ações automáticas visíveis em Configuração > Ações automáticas.
     CronTask::Register(Classifier::class, 'Classifier', 300);
+    CronTask::Register(AiRca::class, 'AiRca', 300);
 
     return true;
 }
