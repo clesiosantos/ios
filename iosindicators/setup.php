@@ -37,6 +37,17 @@ function plugin_iosindicators_load_local_env(): void
         '/opt/glpi/glpi11/config/.env',
     ];
 
+    // Também aceita qualquer arquivo *.env já existente no volume de configuração,
+    // desde que contenha a chave GEMINI_API_KEY.
+    foreach (['/var/glpi/config/*.env', '/opt/glpi/glpi11/config/*.env'] as $pattern) {
+        $matches = glob($pattern) ?: [];
+        foreach ($matches as $match) {
+            if (!in_array($match, $candidates, true)) {
+                $candidates[] = $match;
+            }
+        }
+    }
+
     foreach ($candidates as $file) {
         if (!is_readable($file)) {
             continue;
