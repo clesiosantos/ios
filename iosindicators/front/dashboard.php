@@ -19,32 +19,38 @@ Html::header(
 );
 
 echo '<link rel="stylesheet" href="../css/iosindicators.css?v=' . urlencode((string) PLUGIN_IOSINDICATORS_VERSION) . '">';
+echo '<link rel="stylesheet" href="../css/iosindicators-modern.css?v=' . urlencode((string) PLUGIN_IOSINDICATORS_VERSION) . '">';
 
 try {
     [$from, $to] = Metrics::periodFromRequest($_GET);
     $summary = Metrics::summary($from, $to);
 
-    echo '<div class="container-fluid py-3 iosindicators-wrapper">';
-    echo '<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">';
-    echo '<div>';
-    echo '<h2 class="mb-1">Indicadores Operacionais de Incidentes</h2>';
-    echo '<div class="text-muted">Ciclo Zabbix → GLPI → Tratativa → Normalização → RCA / Base de Conhecimento</div>';
+    echo '<div class="ios-dashboard-wrapper iosindicators-wrapper">';
+
+    echo '<div class="ios-page-header">';
+    echo '<div class="ios-title-group">';
+    echo '<h2>Indicadores Operacionais de Incidentes</h2>';
+    echo '<div class="ios-pipeline-badge"><i class="ti ti-git-merge"></i><span>Zabbix → GLPI → Tratativa → Normalização → RCA / Base de Conhecimento</span></div>';
     echo '</div>';
 
-    echo '<form method="get" class="d-flex flex-wrap align-items-end gap-2 iosindicators-filter">';
-    echo '<div><label class="form-label mb-1">Período rápido</label><select class="form-select" name="days">';
+    echo '<form method="get" class="ios-filters-bar iosindicators-filter">';
+    echo '<div class="ios-filter-group"><label>Período rápido</label><select class="form-select" name="days">';
     $currentDays = isset($_GET['days']) ? (int) $_GET['days'] : 30;
     foreach ([1 => 'Hoje', 7 => '7 dias', 30 => '30 dias', 90 => '90 dias', 365 => '1 ano'] as $days => $label) {
         $selected = ($currentDays === $days && empty($_GET['from'])) ? ' selected' : '';
         echo '<option value="' . $days . '"' . $selected . '>' . htmlescape($label) . '</option>';
     }
     echo '</select></div>';
-    echo '<div><label class="form-label mb-1">De</label><input type="date" class="form-control" name="from" value="' . htmlescape((string) ($_GET['from'] ?? '')) . '"></div>';
-    echo '<div><label class="form-label mb-1">Até</label><input type="date" class="form-control" name="to" value="' . htmlescape((string) ($_GET['to'] ?? '')) . '"></div>';
-    echo '<button class="btn btn-primary" type="submit"><i class="ti ti-filter"></i> Aplicar</button>';
-    echo '</form></div>';
+    echo '<div class="ios-filter-group"><label>De</label><input type="date" class="form-control" name="from" value="' . htmlescape((string) ($_GET['from'] ?? '')) . '"></div>';
+    echo '<div class="ios-filter-group"><label>Até</label><input type="date" class="form-control" name="to" value="' . htmlescape((string) ($_GET['to'] ?? '')) . '"></div>';
+    echo '<button class="ios-btn-primary" type="submit"><i class="ti ti-filter"></i><span>Aplicar</span></button>';
+    echo '</form>';
+    echo '</div>';
 
-    echo '<div class="alert alert-info py-2">Período considerado: <strong>' . $from->format('d/m/Y H:i') . '</strong> até <strong>' . $to->format('d/m/Y H:i') . '</strong>. O recorte usa a data de abertura do ticket.</div>';
+    echo '<div class="ios-context-strip">';
+    echo '<div><i class="ti ti-calendar-stats"></i><span>Período considerado: <strong>' . $from->format('d/m/Y H:i') . '</strong> até <strong>' . $to->format('d/m/Y H:i') . '</strong></span></div>';
+    echo '<div class="ios-context-note"><i class="ti ti-info-circle"></i><span>O recorte usa a data de abertura do ticket.</span></div>';
+    echo '</div>';
 
     if (!empty($summary['diagnostics']) && Session::haveRight('config', UPDATE)) {
         echo '<div class="alert alert-warning"><strong>Diagnóstico do plugin</strong><ul class="mb-0 mt-2">';
@@ -90,6 +96,25 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  var liveTabLabel = document.querySelector('#tab-tempo-real-btn span');
+  if (liveTabLabel && !liveTabLabel.querySelector('.live-pulse')) {
+    var pulse = document.createElement('span');
+    pulse.className = 'live-pulse';
+    liveTabLabel.prepend(pulse);
+  }
+
+  function cardLabel(card) {
+    var el = card ? card.querySelector('.iosindicators-kpi-label') : null;
+    return el ? el.textContent.trim() : '';
+  }
+
+  function findCard(root, label) {
+    if (!root) return null;
+    return Array.from(root.querySelectorAll('.iosindicators-kpi')).find(function (card) {
+      return cardLabel(card).toLowerCase() === label.toLowerCase();
+    }) || null;
+  }
+
   function parseRows(panel) {
     if (!panel) return [];
     return Array.from(panel.querySelectorAll('.iosindicators-bar-row')).map(function (row) {
@@ -110,17 +135,26 @@ document.addEventListener('DOMContentLoaded', function () {
     return title ? title.textContent.trim() : '';
   }
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function rankingTable(panel, rows, itemLabel) {
     if (!panel || !rows.length) return;
     var body = panel.querySelector('.card-body');
     if (!body) return;
 
     var html = '<div class="table-responsive"><table class="ios-ranking-table">';
-    html += '<thead><tr><th style="width:42px">#</th><th>' + itemLabel + '</th><th class="text-end">Incidentes</th><th class="text-end">Participação</th></tr></thead><tbody>';
+    html += '<thead><tr><th style="width:42px">#</th><th>' + escapeHtml(itemLabel) + '</th><th class="text-end">Incidentes</th><th class="text-end">Participação</th></tr></thead><tbody>';
     rows.forEach(function (row, index) {
-      html += '<tr title="' + row.label.replace(/"/g, '&quot;') + ': ' + row.count + ' incidentes">';
+      html += '<tr title="' + escapeHtml(row.label + ': ' + row.count + ' incidentes') + '">';
       html += '<td><span class="ios-rank-pos">' + (index + 1) + '</span></td>';
-      html += '<td><span class="ios-rank-name">' + row.label + '</span></td>';
+      html += '<td><span class="ios-rank-name">' + escapeHtml(row.label) + '</span></td>';
       html += '<td class="ios-rank-count">' + row.count + '</td>';
       html += '<td class="ios-rank-share">' + row.percent.toFixed(1).replace('.', ',') + '%</td>';
       html += '</tr>';
@@ -129,10 +163,12 @@ document.addEventListener('DOMContentLoaded', function () {
     body.innerHTML = html;
   }
 
-  function buildDonutCard(title, subtitle, rows, colors, centerLabel) {
-    if (!rows || !rows.length) return null;
+  function injectDonut(panel, rows, colors, centerLabel) {
+    if (!panel || !rows.length) return;
+    var body = panel.querySelector('.card-body');
+    if (!body) return;
     var total = rows.reduce(function (sum, row) { return sum + row.count; }, 0);
-    if (!total) return null;
+    if (!total) return;
 
     var cursor = 0;
     var gradients = [];
@@ -143,95 +179,131 @@ document.addEventListener('DOMContentLoaded', function () {
       cursor = next;
     });
 
-    var card = document.createElement('div');
-    card.className = 'card iosindicators-panel ios-donut-card h-100';
     var legend = rows.map(function (row, index) {
       var pct = total ? ((row.count / total) * 100) : 0;
-      return '<div class="ios-donut-legend-row" title="' + row.label.replace(/"/g, '&quot;') + ': ' + row.count + '">' +
+      return '<div class="ios-donut-legend-row" title="' + escapeHtml(row.label + ': ' + row.count) + '">' +
         '<span class="ios-donut-dot" style="background:' + colors[index % colors.length] + '"></span>' +
-        '<span class="ios-donut-legend-label">' + row.label + '</span>' +
+        '<span class="ios-donut-legend-label">' + escapeHtml(row.label) + '</span>' +
         '<span class="ios-donut-legend-value">' + row.count + ' · ' + pct.toFixed(1).replace('.', ',') + '%</span>' +
       '</div>';
     }).join('');
 
-    card.innerHTML =
-      '<div class="card-header"><div class="iosindicators-panel-title">' +
-        '<i class="ti ti-chart-donut-3"></i>' +
-        '<div><strong>' + title + '</strong><div class="text-muted small">' + subtitle + '</div></div>' +
-      '</div></div>' +
-      '<div class="card-body">' +
+    body.innerHTML =
+      '<div class="ios-donut-layout">' +
         '<div class="ios-donut-wrap">' +
           '<div class="ios-donut" style="background:conic-gradient(' + gradients.join(',') + ')"></div>' +
-          '<div class="ios-donut-center"><strong>' + total + '</strong><span>' + centerLabel + '</span></div>' +
+          '<div class="ios-donut-center"><strong>' + total + '</strong><span>' + escapeHtml(centerLabel) + '</span></div>' +
         '</div>' +
         '<div class="ios-donut-legend">' + legend + '</div>' +
       '</div>';
+  }
 
-    return card;
+  function createDonutPanel(title, subtitle, rows, colors, centerLabel, iconClass, extraClass) {
+    if (!rows || !rows.length) return null;
+    var col = document.createElement('div');
+    col.className = extraClass || '';
+    col.innerHTML =
+      '<div class="card iosindicators-panel h-100">' +
+        '<div class="card-header"><div class="iosindicators-panel-title">' +
+          '<i class="' + escapeHtml(iconClass || 'ti ti-chart-donut-3') + '"></i>' +
+          '<div><strong>' + escapeHtml(title) + '</strong><div class="text-muted small">' + escapeHtml(subtitle) + '</div></div>' +
+        '</div></div>' +
+        '<div class="card-body"></div>' +
+      '</div>';
+    injectDonut(col.querySelector('.iosindicators-panel'), rows, colors, centerLabel);
+    return col;
+  }
+
+  function buildPresentationKpis(executive, velocity) {
+    var executiveGrid = executive ? executive.querySelector('.iosindicators-grid-headline') : null;
+    if (!executiveGrid) return;
+
+    var grid = document.createElement('div');
+    grid.className = 'ios-presentation-kpi-grid';
+
+    var order = [
+      ['Incidentes no período', executive],
+      ['Normalizados', executive],
+      ['Em tratamento', executive],
+      ['MTTR', velocity],
+      ['TTO médio', velocity],
+      ['MTBF', velocity],
+      ['Cobertura estruturada', executive],
+      ['Disponibilidade estimada', executive],
+      ['Hosts reincidentes', executive],
+      ['P90 solução', velocity]
+    ];
+
+    order.forEach(function (item) {
+      var card = findCard(item[1], item[0]);
+      if (card) grid.appendChild(card.cloneNode(true));
+    });
+
+    executiveGrid.replaceWith(grid);
   }
 
   function modernizeExecutive() {
     var executive = document.getElementById('tab-executiva');
-    if (!executive || executive.dataset.modernized === '1') return;
-    executive.dataset.modernized = '1';
-
-    var board = executive.querySelector('.row.g-3.mt-1');
-    if (board) {
-      board.classList.add('ios-executive-board');
-      Array.from(board.children).forEach(function (column) {
-        var panel = column.querySelector('.iosindicators-panel');
-        var title = panelTitle(panel);
-
-        if (title.indexOf('Eventos mais frequentes') !== -1) {
-          column.classList.add('ios-exec-wide');
-        } else if (title.indexOf('Clientes com mais incidentes') !== -1) {
-          column.classList.add('ios-exec-narrow');
-          rankingTable(panel, parseRows(panel), 'Cliente');
-        } else if (title.indexOf('Hosts reincidentes') !== -1) {
-          column.classList.add('ios-exec-wide');
-          rankingTable(panel, parseRows(panel), 'Host');
-        } else if (title.indexOf('Distribuição por tipo de ativo') !== -1) {
-          column.classList.add('ios-exec-narrow');
-        } else {
-          column.classList.add('ios-exec-half');
-        }
-      });
-    }
-
     var velocity = document.getElementById('tab-velocidade');
-    if (!velocity) return;
+    if (!executive || executive.dataset.presentationReady === '1') return;
+    executive.dataset.presentationReady = '1';
 
-    var sourcePanels = Array.from(velocity.querySelectorAll('.iosindicators-panel'));
-    var statusPanel = sourcePanels.find(function (panel) { return panelTitle(panel).indexOf('Pipeline de status') !== -1; });
-    var severityPanel = sourcePanels.find(function (panel) { return panelTitle(panel).indexOf('Severidade monitorada') !== -1; });
+    buildPresentationKpis(executive, velocity);
 
-    var secondary = document.createElement('div');
-    secondary.className = 'ios-exec-secondary-grid';
+    var originalBoard = executive.querySelector('.row.g-3.mt-1');
+    if (!originalBoard) return;
+    originalBoard.classList.remove('row', 'g-3', 'mt-1');
+    originalBoard.classList.add('ios-presentation-panels-grid');
 
-    var statusDonut = buildDonutCard(
-      'Panorama dos tickets',
-      'Distribuição consolidada por status no período.',
-      parseRows(statusPanel),
-      ['#2563eb', '#10b981', '#64748b', '#f59e0b', '#7c3aed', '#0ea5e9'],
-      'tickets'
-    );
+    Array.from(originalBoard.children).forEach(function (column) {
+      var panel = column.querySelector('.iosindicators-panel');
+      var title = panelTitle(panel);
+      column.className = '';
 
-    var severityDonut = buildDonutCard(
-      'Severidade dos incidentes',
-      'Perfil de criticidade extraído dos tickets monitorados.',
-      parseRows(severityPanel),
-      ['#ef4444', '#f59e0b', '#2563eb', '#10b981', '#7c3aed', '#64748b'],
-      'incidentes'
-    );
-
-    if (statusDonut) secondary.appendChild(statusDonut);
-    if (severityDonut) secondary.appendChild(severityDonut);
-    if (secondary.children.length) {
-      if (board && board.parentNode) {
-        board.parentNode.insertBefore(secondary, board.nextSibling);
-      } else {
-        executive.appendChild(secondary);
+      if (title.indexOf('Eventos mais frequentes') !== -1) {
+        column.classList.add('ios-panel-events');
+      } else if (title.indexOf('Clientes com mais incidentes') !== -1) {
+        column.classList.add('ios-panel-clients');
+        injectDonut(panel, parseRows(panel), ['#2563eb','#10b981','#f59e0b','#7c3aed','#0ea5e9','#64748b'], 'tickets');
+      } else if (title.indexOf('Hosts reincidentes') !== -1) {
+        column.classList.add('ios-panel-hosts');
+        rankingTable(panel, parseRows(panel), 'Host');
+      } else if (title.indexOf('Distribuição por tipo de ativo') !== -1) {
+        column.classList.add('ios-panel-assets');
       }
+    });
+
+    if (velocity) {
+      var velocityPanels = Array.from(velocity.querySelectorAll('.iosindicators-panel'));
+      var statusPanel = velocityPanels.find(function (panel) { return panelTitle(panel).indexOf('Pipeline de status') !== -1; });
+      var severityPanel = velocityPanels.find(function (panel) { return panelTitle(panel).indexOf('Severidade monitorada') !== -1; });
+
+      var status = createDonutPanel(
+        'Panorama dos tickets',
+        'Distribuição consolidada por status no período.',
+        parseRows(statusPanel),
+        ['#2563eb','#10b981','#64748b','#f59e0b','#7c3aed','#0ea5e9'],
+        'tickets',
+        'ti ti-chart-donut-3',
+        'ios-panel-status'
+      );
+
+      var severity = createDonutPanel(
+        'Severidade dos incidentes',
+        'Perfil de criticidade dos tickets monitorados.',
+        parseRows(severityPanel),
+        ['#ef4444','#f59e0b','#2563eb','#10b981','#7c3aed','#64748b'],
+        'incidentes',
+        'ti ti-alert-triangle',
+        'ios-panel-severity'
+      );
+
+      if (status) {
+        var clients = originalBoard.querySelector('.ios-panel-clients');
+        if (clients && clients.nextSibling) originalBoard.insertBefore(status, clients.nextSibling);
+        else originalBoard.appendChild(status);
+      }
+      if (severity) originalBoard.appendChild(severity);
     }
 
     initTooltips(executive);
