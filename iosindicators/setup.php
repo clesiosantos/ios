@@ -8,13 +8,62 @@ use GlpiPlugin\Iosindicators\Dashboard;
 /**
  * IOS Indicators - Indicadores operacionais e classificação de incidentes para GLPI 11.
  */
-define('PLUGIN_IOSINDICATORS_VERSION', '0.8.0');
+define('PLUGIN_IOSINDICATORS_VERSION', '0.8.1');
 define('PLUGIN_IOSINDICATORS_MIN_GLPI_VERSION', '11.0.0');
 define('PLUGIN_IOSINDICATORS_MAX_GLPI_VERSION', '11.0.99');
+
+/**
+ * Carrega segredos/configurações locais do volume de configuração do GLPI.
+ *
+ * Ambiente Docker atual:
+ *   host:      /opt/glpi/glpi11/config
+ *   container: /var/glpi/config
+ *
+ * A chave GEMINI_API_KEY continua podendo ser fornecida diretamente pelo
+ * ambiente do PHP/Apache/PHP-FPM. O arquivo local só é usado quando a variável
+ * ainda não está disponível no processo.
+ */
+function plugin_iosindicators_load_local_env(): void
+{
+    if (trim((string) getenv('GEMINI_API_KEY')) !== '') {
+        return;
+    }
+
+    $candidates = [
+        '/var/glpi/config/iosindicators.env',
+        '/var/glpi/config/.env',
+        // Fallback útil quando o plugin for executado diretamente no host.
+        '/opt/glpi/glpi11/config/iosindicators.env',
+        '/opt/glpi/glpi11/config/.env',
+    ];
+
+    foreach ($candidates as $file) {
+        if (!is_readable($file)) {
+            continue;
+        }
+
+        $values = @parse_ini_file($file, false, INI_SCANNER_RAW);
+        if (!is_array($values) || empty($values['GEMINI_API_KEY'])) {
+            continue;
+        }
+
+        $key = trim((string) $values['GEMINI_API_KEY'], " \t\n\r\0\x0B\"'");
+        if ($key === '') {
+            continue;
+        }
+
+        putenv('GEMINI_API_KEY=' . $key);
+        $_ENV['GEMINI_API_KEY'] = $key;
+        $_SERVER['GEMINI_API_KEY'] = $key;
+        break;
+    }
+}
 
 function plugin_init_iosindicators(): void
 {
     global $PLUGIN_HOOKS;
+
+    plugin_iosindicators_load_local_env();
 
     $PLUGIN_HOOKS['csrf_compliant']['iosindicators'] = true;
 
