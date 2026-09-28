@@ -19,10 +19,13 @@ final class Settings
             'classifier_immediate'          => 1,
             'classifier_create_categories'  => 1,
             'classifier_create_hosts'       => 1,
+            'classifier_assign_requester'   => 1,
+            'classifier_assign_noc'         => 1,
             'classifier_overwrite_category' => 0,
             'classifier_batch_size'         => 100,
             'classifier_cursor_id'          => 0,
             'classifier_root_category'      => 'Monitoramento',
+            'classifier_noc_root_group'     => 'NOC',
         ];
     }
 
@@ -62,12 +65,15 @@ final class Settings
             'classifier_immediate'          => isset($input['classifier_immediate']) ? 1 : 0,
             'classifier_create_categories'  => isset($input['classifier_create_categories']) ? 1 : 0,
             'classifier_create_hosts'       => isset($input['classifier_create_hosts']) ? 1 : 0,
+            'classifier_assign_requester'   => isset($input['classifier_assign_requester']) ? 1 : 0,
+            'classifier_assign_noc'         => isset($input['classifier_assign_noc']) ? 1 : 0,
             'classifier_overwrite_category' => isset($input['classifier_overwrite_category']) ? 1 : 0,
             'classifier_batch_size'         => $batchSize,
-            'classifier_root_category'      => self::cleanName((string)($input['classifier_root_category'] ?? 'Monitoramento')),
+            'classifier_root_category'      => self::cleanName((string)($input['classifier_root_category'] ?? 'Monitoramento'), 'Monitoramento'),
+            'classifier_noc_root_group'     => self::cleanName((string)($input['classifier_noc_root_group'] ?? 'NOC'), 'NOC'),
         ];
 
-        if (isset($input['reset_classifier_cursor'])) {
+        if (isset($input['reset_classifier_cursor']) || isset($input['classifier_cursor_id'])) {
             $values['classifier_cursor_id'] = 0;
         }
 
@@ -80,9 +86,9 @@ final class Settings
         return mb_substr($value !== '' ? $value : '-', 0, 80);
     }
 
-    private static function cleanName(string $value): string
+    private static function cleanName(string $value, string $fallback): string
     {
         $value = trim($value);
-        return mb_substr($value !== '' ? $value : 'Monitoramento', 0, 255);
+        return mb_substr($value !== '' ? $value : $fallback, 0, 255);
     }
 }
