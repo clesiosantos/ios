@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0
+- Redesign visual completo inspirado no mockup validado para o dashboard operacional.
+- Nova paleta neutra baseada em `#f8fafc`, cards brancos, bordas `#e2e8f0` e tipografia em tons de slate.
+- Abas passam a usar navegação segmentada com estado ativo em azul claro e menor peso visual.
+- Barra de filtros passa a ter tratamento de card compacto com labels em caixa alta, foco azul e botão Aplicar em laranja.
+- Banner de período recebe fundo neutro e destaque lateral azul.
+- Hero/contexto das abas passa a ter visual de card executivo plano, removendo gradientes decorativos pesados.
+- KPIs passam a usar cards brancos com ícones em blocos de cor suaves, números escuros em destaque e rodapé separado por linha tracejada.
+- Tons dos KPIs deixam de colorir o card inteiro e passam a ser usados como acento visual nos ícones.
+- Cards e painéis ganham hover discreto, borda sutil, sombra leve e melhor hierarquia visual.
+- Painéis analíticos, distribuições, tabelas e matriz de completude recebem o mesmo design system.
+- Responsividade revisada para desktop, notebook, tablet e mobile.
+- CSS permanece isolado no escopo `.iosindicators-wrapper` para reduzir interferência nos estilos globais do GLPI.
+- Versão incrementada para `0.5.0` para invalidar cache do CSS versionado.
+
 ## 0.4.1
 - KPIs principais passam a ser encapsulados visualmente em cards individuais, com borda, sombra, fundo, espaçamento interno e comportamento responsivo.
 - Reforçada a especificidade do CSS para evitar que estilos globais do GLPI sobrescrevam os cards do plugin.
