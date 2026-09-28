@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1
+- Corrigido o erro `404 Not Found` dos arquivos `iosindicators.css` e `iosindicators-modern.css` em instalações GLPI 11 cujo webroot não publica diretamente os assets em `/plugins/<plugin>/css`.
+- O dashboard passa a carregar os dois arquivos CSS no lado do servidor e injetá-los inline na página, eliminando a dependência da rota pública dos assets.
+- Removido o hook global `add_css` do plugin para evitar novas requisições 404 desnecessárias.
+- Mantidos os arquivos CSS no plugin como fonte única de estilo, porém consumidos pelo PHP via filesystem.
+- Simplificado o JavaScript da página para navegação entre abas, persistência da aba ativa, tooltips e pulso do Tempo Real, reduzindo risco de falhas visuais durante o carregamento.
+- Versão incrementada para `0.7.1`.
+
 ## 0.5.0
 - Redesign visual completo inspirado no mockup validado para o dashboard operacional.
 - Nova paleta neutra baseada em `#f8fafc`, cards brancos, bordas `#e2e8f0` e tipografia em tons de slate.
