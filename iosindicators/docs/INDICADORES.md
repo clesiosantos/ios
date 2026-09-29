@@ -33,6 +33,19 @@
 | Espera média | `waiting_duration` |
 | TMA | ActionTime médio registrado |
 
+### Severidade monitorada
+
+A severidade é extraída do conteúdo recebido no ticket e consolidada em uma escala única, sempre apresentada da maior para a menor criticidade:
+
+1. **Disaster**
+2. **High**
+3. **Average**
+4. **Warning**
+5. **Information**
+6. **Not classified**
+
+Tickets sem o campo de severidade ou com valor não reconhecido são contabilizados como **Not classified**. O dashboard também normaliza registros antigos em que o conteúdo HTML tenha concatenado a severidade com campos seguintes, evitando rótulos como `AverageOperational data...`.
+
 ## Qualidade do dado
 
 | Indicador | Significado |
@@ -54,6 +67,8 @@
 | Pendentes | Tickets em espera |
 | Clientes impactados | Clientes distintos com tickets abertos |
 | Hosts impactados | Hosts distintos com tickets abertos |
+
+A distribuição **Severidade ativa** utiliza a mesma ordem de criticidade adotada em Severidade monitorada.
 
 ## Eficiência IA
 
