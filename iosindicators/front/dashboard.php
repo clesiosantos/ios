@@ -47,6 +47,77 @@ try {
     $efficiency = EfficiencyMetrics::summary($from, $to);
 
     /**
+     * Normalização de severidade do monitoramento.
+     *
+     * Alguns tickets antigos trazem o HTML do corpo sem separação entre os
+     * campos, gerando valores como:
+     *   AverageOperational data: 99 %Original problem ID: 2893
+     *
+     * Para fins de governança, o dashboard consolida exclusivamente a escala
+     * oficial esperada do monitoramento e agrupa qualquer valor ausente ou não
+     * reconhecido em "Not classified".
+     *
+     * Ordem de criticidade utilizada na apresentação:
+     * Disaster > High > Average > Warning > Information > Not classified.
+     */
+    $normalizeSeverityCounts = static function (array $rawCounts, int $baseTotal): array {
+        $normalized = [
+            'Disaster' => 0,
+            'High' => 0,
+            'Average' => 0,
+            'Warning' => 0,
+            'Information' => 0,
+            'Not classified' => 0,
+        ];
+
+        $recognized = 0;
+        foreach ($rawCounts as $rawLabel => $rawCount) {
+            $count = max(0, (int) $rawCount);
+            $label = trim((string) $rawLabel);
+            $target = null;
+
+            foreach (['Disaster', 'High', 'Average', 'Warning', 'Information'] as $severity) {
+                if (stripos($label, $severity) === 0) {
+                    $target = $severity;
+                    break;
+                }
+            }
+
+            if ($target === null && preg_match('/^Not\s*classified/iu', $label)) {
+                $target = 'Not classified';
+            }
+
+            if ($target === null) {
+                $target = 'Not classified';
+            }
+
+            $normalized[$target] += $count;
+            $recognized += $count;
+        }
+
+        // Tickets que não possuíam campo Severity nunca entravam em severity_counts.
+        // Eles também são explicitamente contabilizados como Not classified.
+        if ($baseTotal > $recognized) {
+            $normalized['Not classified'] += ($baseTotal - $recognized);
+        }
+
+        return $normalized;
+    };
+
+    $summary['severity_counts'] = $normalizeSeverityCounts(
+        (array) ($summary['severity_counts'] ?? []),
+        (int) ($summary['total'] ?? 0)
+    );
+    $summary['open_severity_counts'] = $normalizeSeverityCounts(
+        (array) ($summary['open_severity_counts'] ?? []),
+        (int) ($summary['open'] ?? 0)
+    );
+    $summary['active_severities'] = count(array_filter(
+        $summary['open_severity_counts'],
+        static fn($count): bool => (int) $count > 0
+    ));
+
+    /**
      * Disponibilidade estimada
      * ------------------------
      * A versão anterior recebia availability_pct da rotina de confiabilidade,
@@ -126,7 +197,73 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  function severityCard(title) {
+    var cards = Array.from(document.querySelectorAll('.iosindicators-panel'));
+    return cards.find(function (card) {
+      var strong = card.querySelector('.card-header strong');
+      return strong && strong.textContent.trim() === title;
+    });
+  }
+
+  function orderSeverityCard(title) {
+    var card = severityCard(title);
+    if (!card) return;
+
+    var body = card.querySelector('.card-body');
+    if (!body || body.dataset.severityOrdered === '1') return;
+
+    var order = ['Disaster', 'High', 'Average', 'Warning', 'Information', 'Not classified'];
+    var colors = {
+      'Disaster': '#991b1b',
+      'High': '#ef4444',
+      'Average': '#f97316',
+      'Warning': '#eab308',
+      'Information': '#3b82f6',
+      'Not classified': '#94a3b8'
+    };
+
+    var rows = Array.from(body.querySelectorAll('.iosindicators-bar-row'));
+    var byLabel = {};
+
+    rows.forEach(function (row) {
+      var label = row.querySelector('.iosindicators-bar-label');
+      if (!label) return;
+      byLabel[label.textContent.trim()] = row;
+    });
+
+    order.forEach(function (severity) {
+      var row = byLabel[severity];
+      if (!row) return;
+
+      var label = row.querySelector('.iosindicators-bar-label');
+      var bar = row.querySelector('.progress-bar');
+
+      if (label && !label.querySelector('.ios-severity-dot')) {
+        var dot = document.createElement('span');
+        dot.className = 'ios-severity-dot';
+        dot.style.display = 'inline-block';
+        dot.style.width = '8px';
+        dot.style.height = '8px';
+        dot.style.borderRadius = '50%';
+        dot.style.marginRight = '8px';
+        dot.style.verticalAlign = '1px';
+        dot.style.backgroundColor = colors[severity];
+        label.prepend(dot);
+      }
+
+      if (bar) {
+        bar.style.backgroundColor = colors[severity];
+      }
+
+      body.appendChild(row);
+    });
+
+    body.dataset.severityOrdered = '1';
+  }
+
   initTooltips(document);
+  orderSeverityCard('Severidade monitorada');
+  orderSeverityCard('Severidade ativa');
 
   var buttons = document.querySelectorAll('#iosindicators-tabs button[data-bs-toggle="tab"]');
   var preferred = window.location.hash
@@ -150,6 +287,12 @@ document.addEventListener('DOMContentLoaded', function () {
       localStorage.setItem('iosindicators.activeTab', tabId);
       if (history.replaceState) {
         history.replaceState(null, '', '#' + tabId);
+      }
+      if (tabId === 'tab-velocidade') {
+        orderSeverityCard('Severidade monitorada');
+      }
+      if (tabId === 'tab-tempo-real') {
+        orderSeverityCard('Severidade ativa');
       }
     });
   });
