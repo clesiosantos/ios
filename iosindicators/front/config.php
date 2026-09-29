@@ -65,10 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (isset($_POST['run_actiontime_now'])) {
         $result = ActionTimeBackfill::runBatch(null, 'manual');
         $message = sprintf(
-            'ActionTime executado: lidos=%d, elegíveis=%d, tasks criadas=%d, já processados=%d, preservados=%d, ignorados=%d, erros=%d.',
+            'ActionTime histórico executado: lidos=%d, elegíveis=%d, criados=%d, migrados=%d, atualizados=%d, já processados=%d, preservados=%d, ignorados=%d, erros=%d.',
             $result['read'],
             $result['eligible'],
             $result['created'],
+            $result['migrated'],
+            $result['updated'],
             $result['already_processed'],
             $result['preserved'],
             $result['ignored'],
@@ -78,7 +80,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!empty($result['processed'])) {
             $items = [];
             foreach (array_slice($result['processed'], 0, 40) as $item) {
-                $items[] = sprintf('Ticket #%d → Task #%d (%ds)', $item['ticket_id'], $item['task_id'], $item['actiontime']);
+                $items[] = sprintf(
+                    'Ticket #%d → Task #%d (%ds, %s)',
+                    $item['ticket_id'],
+                    $item['task_id'],
+                    $item['actiontime'],
+                    $item['operation'] ?? 'created'
+                );
             }
             $message .= ' Processados: ' . implode(' | ', $items) . '.';
         }
@@ -178,11 +186,12 @@ echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong
 echo '<div class="alert alert-secondary"><strong>Histórico:</strong> cada sucesso, falha HTTP, timeout e lote executado é gravado em <code>' . htmlescape(AiRcaHistory::filePathForDisplay()) . '</code>.</div>';
 
 echo '<hr class="my-4">';
-echo '<div><h3 class="h4 mb-1">ActionTime histórico e eficiência IA</h3><p class="text-muted">Para tickets fechados, cria uma task auditável cujo <code>actiontime</code> é a diferença entre abertura e fechamento. O valor representa <strong>tempo de ciclo operacional</strong>, não esforço humano real.</p></div>';
-echo '<div class="alert alert-warning mt-3"><strong>Importante:</strong> por segurança, a opção padrão preserva tickets que já possuem ActionTime maior que zero. Assim não sobrescrevemos apontamentos humanos existentes.</div>';
+echo '<div><h3 class="h4 mb-1">ActionTime histórico e eficiência IA</h3><p class="text-muted">Para tickets fechados, cria uma task auditável cujo <code>actiontime</code> é a diferença entre <strong>data/hora de abertura e data/hora da solução</strong>. Esta é a base histórica comparada com o tempo estimado pela IA/RCA.</p></div>';
+echo '<div class="alert alert-info mt-3"><strong>Histórico × IA:</strong> a task <code>[IOS-ACTIONTIME-SOLUTION-V2]</code> recebe o ActionTime histórico. A task <code>[IA-RCA]</code> mantém a estimativa IOS NORA separada, sem actiontime, para não somar tempo fictício ao total do ticket. A tela de eficiência compara diretamente esses dois valores.</div>';
+echo '<div class="alert alert-warning"><strong>Migração automática:</strong> tasks antigas <code>[IOS-ACTIONTIME-CYCLE-V1]</code>, que usavam abertura→fechamento, serão corrigidas no mesmo registro para abertura→solução, sem criar duplicidade.</div>';
 echo '<div class="row g-3">';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="actiontime_backfill_enabled" id="actiontime_backfill_enabled"' . ((int)$config['actiontime_backfill_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="actiontime_backfill_enabled">Habilitar ação automática IOS - ActionTime Backfill</label><div class="form-text">Percorre tickets fechados e cria uma task marcada com [IOS-ACTIONTIME-CYCLE-V1].</div></div></div>';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="actiontime_fill_only_zero" id="actiontime_fill_only_zero"' . ((int)$config['actiontime_fill_only_zero'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="actiontime_fill_only_zero">Preencher somente tickets com ActionTime igual a zero</label><div class="form-text">Recomendado para preservar tempos reais já existentes.</div></div></div>';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="actiontime_backfill_enabled" id="actiontime_backfill_enabled"' . ((int)$config['actiontime_backfill_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="actiontime_backfill_enabled">Habilitar ação automática IOS - ActionTime Backfill</label><div class="form-text">Percorre tickets fechados e cria/corrige a task [IOS-ACTIONTIME-SOLUTION-V2].</div></div></div>';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="actiontime_fill_only_zero" id="actiontime_fill_only_zero"' . ((int)$config['actiontime_fill_only_zero'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="actiontime_fill_only_zero">Criar nova task histórica somente quando o ActionTime atual for zero</label><div class="form-text">A migração/correção de tasks IOS antigas é feita mesmo com esta opção ligada.</div></div></div>';
 echo '<div class="col-md-3"><label class="form-label">Tickets por lote</label><input class="form-control" type="number" min="1" max="1000" name="actiontime_batch_size" value="' . (int)$config['actiontime_batch_size'] . '"><div class="form-text">Sugestão inicial: 100.</div></div>';
 echo '<div class="col-md-3"><label class="form-label">Janela de busca</label><input class="form-control" type="number" min="1" max="10000" name="actiontime_scan_limit" value="' . (int)$config['actiontime_scan_limit'] . '"><div class="form-text">Máximo de tickets fechados verificados por execução.</div></div>';
 echo '</div>';
