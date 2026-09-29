@@ -46,6 +46,36 @@ try {
     $summary = Metrics::summary($from, $to);
     $efficiency = EfficiencyMetrics::summary($from, $to);
 
+    /**
+     * Disponibilidade estimada
+     * ------------------------
+     * A versão anterior recebia availability_pct da rotina de confiabilidade,
+     * que inferia o MTTR por diferença entre MTBR e MTBF. Isso podia produzir
+     * 0,00% mesmo quando havia MTBF e MTTR válidos no painel.
+     *
+     * Para apresentação operacional, a disponibilidade passa a usar diretamente
+     * os dois indicadores já calculados na mesma base do dashboard:
+     *
+     *   Disponibilidade = MTBF / (MTBF + MTTR) * 100
+     *
+     * O MTTR é o tempo médio até a solução calculado pelo GLPI para os tickets
+     * do recorte. Quando MTBF ou MTTR não estiverem disponíveis, exibimos "—"
+     * em vez de 0,00%, evitando interpretar ausência de amostra como indisponibilidade.
+     */
+    $mtbf = isset($summary['mtbf']) && is_numeric($summary['mtbf'])
+        ? (float) $summary['mtbf']
+        : null;
+    $mttr = isset($summary['avg_mttr']) && is_numeric($summary['avg_mttr'])
+        ? (float) $summary['avg_mttr']
+        : null;
+
+    if ($mtbf !== null && $mtbf > 0 && $mttr !== null && $mttr >= 0 && ($mtbf + $mttr) > 0) {
+        $summary['availability_pct'] = round(($mtbf / ($mtbf + $mttr)) * 100, 2);
+    } else {
+        $summary['availability_pct'] = null;
+        $summary['diagnostics'][] = 'Disponibilidade estimada sem valor: é necessário ter MTBF e MTTR válidos no mesmo recorte. O painel exibirá “—” em vez de 0,00%.';
+    }
+
     echo '<div class="ios-dashboard-wrapper iosindicators-wrapper">';
 
     echo '<div class="ios-page-header">';
