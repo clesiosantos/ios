@@ -36,7 +36,7 @@ final class EfficiencyMetrics
 
         try {
             $iterator = $DB->request([
-                'SELECT' => ['id', 'name', 'date', 'closedate'],
+                'SELECT' => ['id', 'name', 'date', 'solvedate', 'closedate'],
                 'FROM' => 'glpi_tickets',
                 'WHERE' => [
                     'is_deleted' => 0,
@@ -56,6 +56,7 @@ final class EfficiencyMetrics
                 $ticketDates[$id] = [
                     'name' => (string) ($row['name'] ?? ''),
                     'date' => (string) ($row['date'] ?? ''),
+                    'solvedate' => (string) ($row['solvedate'] ?? ''),
                     'closedate' => (string) ($row['closedate'] ?? ''),
                 ];
             }
@@ -69,7 +70,7 @@ final class EfficiencyMetrics
             return $result;
         }
 
-        $cycle = [];
+        $historical = [];
         $ai = [];
 
         try {
@@ -89,13 +90,16 @@ final class EfficiencyMetrics
 
                     $content = html_entity_decode(strip_tags((string) ($task['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
+                    // Baseline oficial: task V2 com actiontime abertura→solução.
                     if (mb_stripos($content, ActionTimeBackfill::MARKER) !== false) {
                         $seconds = max(0, (int) ($task['actiontime'] ?? 0));
                         if ($seconds > 0) {
-                            $cycle[$ticketId] = $seconds;
+                            $historical[$ticketId] = $seconds;
                         }
                     }
 
+                    // IA/RCA: permanece como estimativa separada no conteúdo da task,
+                    // sem actiontime, para não somar tempo fictício ao ticket.
                     if (mb_stripos($content, '[IOS-AI-RCA-V1]') !== false || mb_stripos($content, (string) Settings::get('ai_task_tag', '[IA-RCA]')) !== false) {
                         if (preg_match('/Tempo estimado IA \(segundos\):\s*(\d+)/iu', $content, $m)) {
                             $seconds = (int) $m[1];
@@ -111,35 +115,37 @@ final class EfficiencyMetrics
             return $result;
         }
 
-        $result['cycle_tickets'] = count($cycle);
+        $result['cycle_tickets'] = count($historical);
         $result['ai_tickets'] = count($ai);
 
-        $cycleValues = [];
+        $historicalValues = [];
         $aiValues = [];
         $savedValues = [];
-        $weightedCycle = 0;
+        $weightedHistorical = 0;
         $weightedAi = 0;
         $rows = [];
 
-        foreach ($cycle as $ticketId => $cycleSeconds) {
+        foreach ($historical as $ticketId => $historicalSeconds) {
             if (!isset($ai[$ticketId])) {
                 continue;
             }
 
             $aiSeconds = $ai[$ticketId];
-            $saved = $cycleSeconds - $aiSeconds;
-            $efficiency = $cycleSeconds > 0 ? (($cycleSeconds - $aiSeconds) / $cycleSeconds) * 100 : 0.0;
+            $saved = $historicalSeconds - $aiSeconds;
+            $efficiency = $historicalSeconds > 0 ? (($historicalSeconds - $aiSeconds) / $historicalSeconds) * 100 : 0.0;
 
-            $cycleValues[] = $cycleSeconds;
+            $historicalValues[] = $historicalSeconds;
             $aiValues[] = $aiSeconds;
             $savedValues[] = $saved;
-            $weightedCycle += $cycleSeconds;
+            $weightedHistorical += $historicalSeconds;
             $weightedAi += $aiSeconds;
 
             $rows[] = [
                 'ticket_id' => $ticketId,
                 'name' => $ticketDates[$ticketId]['name'] ?? '',
-                'cycle_seconds' => $cycleSeconds,
+                'opened_at' => $ticketDates[$ticketId]['date'] ?? '',
+                'solved_at' => $ticketDates[$ticketId]['solvedate'] ?? '',
+                'cycle_seconds' => $historicalSeconds,
                 'ai_seconds' => $aiSeconds,
                 'saved_seconds' => $saved,
                 'efficiency_pct' => round($efficiency, 1),
@@ -149,12 +155,12 @@ final class EfficiencyMetrics
         usort($rows, static fn(array $a, array $b): int => $b['efficiency_pct'] <=> $a['efficiency_pct']);
         $result['rows'] = array_slice($rows, 0, 100);
         $result['compared_tickets'] = count($rows);
-        $result['avg_cycle_seconds'] = self::average($cycleValues);
+        $result['avg_cycle_seconds'] = self::average($historicalValues);
         $result['avg_ai_seconds'] = self::average($aiValues);
         $result['avg_saved_seconds'] = self::average($savedValues);
         $result['total_saved_seconds'] = array_sum($savedValues);
-        $result['potential_efficiency_pct'] = $weightedCycle > 0
-            ? round((($weightedCycle - $weightedAi) / $weightedCycle) * 100, 1)
+        $result['potential_efficiency_pct'] = $weightedHistorical > 0
+            ? round((($weightedHistorical - $weightedAi) / $weightedHistorical) * 100, 1)
             : null;
         $result['coverage_pct'] = $result['closed_tickets'] > 0
             ? round(($result['compared_tickets'] / $result['closed_tickets']) * 100, 1)
