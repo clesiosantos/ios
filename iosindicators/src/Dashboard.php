@@ -122,7 +122,7 @@ final class Dashboard extends CommonDBTM
         return $html;
     }
 
-    public static function renderPage(array $summary): void
+    public static function renderPage(array $summary, array $efficiency = []): void
     {
         echo '<div class="iosindicators-shell">';
         echo self::renderTabsNavigation();
@@ -140,6 +140,10 @@ final class Dashboard extends CommonDBTM
         echo self::renderQualityTab($summary);
         echo '</div>';
 
+        echo '<div class="tab-pane fade" id="tab-eficiencia" role="tabpanel" aria-labelledby="tab-eficiencia-btn">';
+        echo self::renderEfficiencyTab($efficiency);
+        echo '</div>';
+
         echo '<div class="tab-pane fade" id="tab-tempo-real" role="tabpanel" aria-labelledby="tab-tempo-real-btn">';
         echo self::renderRealtimeTab($summary);
         echo '</div>';
@@ -154,6 +158,7 @@ final class Dashboard extends CommonDBTM
             ['id' => 'tab-executiva', 'label' => 'Visão executiva', 'icon' => 'ti ti-layout-dashboard'],
             ['id' => 'tab-velocidade', 'label' => 'Velocidade operacional', 'icon' => 'ti ti-bolt'],
             ['id' => 'tab-qualidade', 'label' => 'Qualidade do dado', 'icon' => 'ti ti-shield-check'],
+            ['id' => 'tab-eficiencia', 'label' => 'Eficiência IA', 'icon' => 'ti ti-sparkles'],
             ['id' => 'tab-tempo-real', 'label' => 'Tempo Real', 'icon' => 'ti ti-activity-heartbeat'],
         ];
 
@@ -234,6 +239,37 @@ final class Dashboard extends CommonDBTM
         $html .= '<div class="col-12 col-xl-7">' . self::renderQualityMatrixCard($s) . '</div>';
         $html .= '<div class="col-12 col-xl-5">' . self::renderDefinitionCard() . '</div>';
         $html .= '</div>';
+        return $html;
+    }
+
+    private static function renderEfficiencyTab(array $e): string
+    {
+        $agentName = trim((string) Settings::get('ai_agent_name', 'IOS NORA'));
+        if ($agentName === '') {
+            $agentName = 'IOS NORA';
+        }
+
+        $efficiencyValue = $e['potential_efficiency_pct'] ?? null;
+        $coverage = (float) ($e['coverage_pct'] ?? 0.0);
+        $compared = (int) ($e['compared_tickets'] ?? 0);
+
+        $html = self::renderHero(
+            'Eficiência potencial com ' . $agentName,
+            'Comparação entre o ActionTime histórico abertura→solução e o esforço estimado pela IA/RCA. Esta aba usa a data da solução para o recorte.',
+            [
+                ['label' => 'Comparáveis', 'value' => self::compactNumber($compared)],
+                ['label' => 'Cobertura', 'value' => Metrics::percent($coverage)],
+                ['label' => 'Eficiência potencial', 'value' => $efficiencyValue === null ? '—' : Metrics::percent((float) $efficiencyValue)],
+            ]
+        );
+
+        $html .= self::renderMetricGrid(self::efficiencyCards($e, $agentName), false, 'iosindicators-grid-performance');
+
+        $html .= '<div class="row g-3 mt-1">';
+        $html .= '<div class="col-12 col-xxl-8">' . self::renderEfficiencyComparisonCard($e['rows'] ?? [], $agentName) . '</div>';
+        $html .= '<div class="col-12 col-xxl-4">' . self::renderEfficiencyDiagnosticsCard($e) . '</div>';
+        $html .= '</div>';
+
         return $html;
     }
 
@@ -344,6 +380,19 @@ final class Dashboard extends CommonDBTM
         ];
     }
 
+    private static function efficiencyCards(array $e, string $agentName): array
+    {
+        $efficiency = $e['potential_efficiency_pct'] ?? null;
+        return [
+            ['value' => self::compactNumber((int) ($e['compared_tickets'] ?? 0)), 'label' => 'Tickets comparados', 'icon' => 'ti ti-arrows-exchange', 'tone' => 'indigo', 'meta' => 'Histórico e IA/RCA no mesmo ticket', 'tooltip' => 'Tickets que possuem ActionTime histórico abertura→solução e estimativa IA/RCA.'],
+            ['value' => Metrics::duration($e['avg_cycle_seconds'] ?? null), 'label' => 'ActionTime histórico médio', 'icon' => 'ti ti-clock', 'tone' => 'orange', 'meta' => 'Abertura → solução', 'tooltip' => 'Tempo histórico médio entre abertura e solução nos tickets comparáveis.'],
+            ['value' => Metrics::duration($e['avg_ai_seconds'] ?? null), 'label' => 'TMA estimado ' . $agentName, 'icon' => 'ti ti-brain', 'tone' => 'purple', 'meta' => 'Esforço técnico estimado pela IA', 'tooltip' => 'Tempo médio que a IA estima para diagnosticar, atuar e validar os tickets comparáveis.'],
+            ['value' => $efficiency === null ? '—' : Metrics::percent((float) $efficiency), 'label' => 'Eficiência potencial IA', 'icon' => 'ti ti-bolt', 'tone' => 'success', 'meta' => 'Redução potencial vs. histórico', 'tooltip' => 'Percentual potencial de redução entre o tempo histórico e o tempo estimado pela IA.'],
+            ['value' => Metrics::duration($e['avg_saved_seconds'] ?? null), 'label' => 'Economia média potencial', 'icon' => 'ti ti-hourglass-low', 'tone' => 'green', 'meta' => 'Diferença média Histórico − IA', 'tooltip' => 'Tempo médio potencialmente economizado por ticket comparável.'],
+            ['value' => Metrics::percent((float) ($e['coverage_pct'] ?? 0.0)), 'label' => 'Cobertura comparável', 'icon' => 'ti ti-chart-dots', 'tone' => 'cyan', 'meta' => self::compactNumber((int) ($e['resolved_tickets'] ?? 0)) . ' tickets solucionados/fechados na base', 'tooltip' => 'Percentual da base resolvida que já possui os dois lados necessários para comparação.'],
+        ];
+    }
+
     private static function qualityCards(array $s): array
     {
         return [
@@ -426,6 +475,76 @@ final class Dashboard extends CommonDBTM
                 $html .= '<div class="progress iosindicators-progress"><div class="progress-bar" role="progressbar" style="width: ' . $percent . '%"></div></div>';
                 $html .= '</div>';
             }
+        }
+
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    private static function renderEfficiencyComparisonCard(array $rows, string $agentName): string
+    {
+        $html = '<div class="card iosindicators-panel h-100">';
+        $html .= '<div class="card-header"><div class="iosindicators-panel-title"><i class="ti ti-arrows-diff"></i><div><strong>Histórico × ' . htmlescape($agentName) . ' por ticket</strong><div class="text-muted small">Comparação dos tickets com os dois lados da análise disponíveis.</div></div></div></div>';
+        $html .= '<div class="card-body p-0">';
+
+        if ($rows === []) {
+            $html .= '<div class="iosindicators-empty-state p-4"><i class="ti ti-chart-dots-3"></i><span>Ainda não há tickets comparáveis neste recorte. Processe ActionTime histórico e IA/RCA nos mesmos chamados.</span></div>';
+        } else {
+            $html .= '<div class="table-responsive"><table class="table table-hover iosindicators-table mb-0">';
+            $html .= '<thead><tr><th>Ticket</th><th>Histórico</th><th>' . htmlescape($agentName) . '</th><th>Economia</th><th>Eficiência</th></tr></thead><tbody>';
+            foreach (array_slice($rows, 0, 25) as $row) {
+                $ticketId = (int) ($row['ticket_id'] ?? 0);
+                $pct = (float) ($row['efficiency_pct'] ?? 0.0);
+                $badge = $pct >= 50 ? 'text-bg-success' : ($pct >= 0 ? 'text-bg-warning' : 'text-bg-danger');
+                $saved = (float) ($row['saved_seconds'] ?? 0);
+                $html .= '<tr>';
+                $html .= '<td><a class="fw-semibold" href="' . htmlescape(Ticket::getFormURLWithID($ticketId)) . '">#' . $ticketId . '</a><div class="small text-muted text-truncate" style="max-width:300px">' . htmlescape((string) ($row['name'] ?? '')) . '</div></td>';
+                $html .= '<td class="text-nowrap">' . htmlescape(Metrics::duration((float) ($row['cycle_seconds'] ?? 0))) . '</td>';
+                $html .= '<td class="text-nowrap">' . htmlescape(Metrics::duration((float) ($row['ai_seconds'] ?? 0))) . '</td>';
+                $html .= '<td class="text-nowrap">' . ($saved >= 0 ? '' : '−') . htmlescape(Metrics::duration(abs($saved))) . '</td>';
+                $html .= '<td><span class="badge ' . $badge . '">' . number_format($pct, 1, ',', '.') . '%</span></td>';
+                $html .= '</tr>';
+            }
+            $html .= '</tbody></table></div>';
+        }
+
+        $html .= '</div></div>';
+        return $html;
+    }
+
+    private static function renderEfficiencyDiagnosticsCard(array $e): string
+    {
+        $resolved = (int) ($e['resolved_tickets'] ?? 0);
+        $historical = (int) ($e['cycle_tickets'] ?? 0);
+        $ai = (int) ($e['ai_tickets'] ?? 0);
+        $compared = (int) ($e['compared_tickets'] ?? 0);
+
+        $html = '<div class="card iosindicators-panel h-100">';
+        $html .= '<div class="card-header"><div class="iosindicators-panel-title"><i class="ti ti-chart-donut-3"></i><div><strong>Cobertura da comparação</strong><div class="text-muted small">Diagnóstico dos dados necessários para a eficiência.</div></div></div></div>';
+        $html .= '<div class="card-body">';
+
+        $items = [
+            ['Solucionados/fechados', $resolved, $resolved > 0 ? 100.0 : 0.0],
+            ['Com ActionTime histórico', $historical, $resolved > 0 ? ($historical / $resolved) * 100 : 0.0],
+            ['Com IA/RCA', $ai, $resolved > 0 ? ($ai / $resolved) * 100 : 0.0],
+            ['Comparáveis', $compared, $resolved > 0 ? ($compared / $resolved) * 100 : 0.0],
+        ];
+
+        foreach ($items as [$label, $count, $percent]) {
+            $percent = max(0, min(100, (float) $percent));
+            $html .= '<div class="iosindicators-completeness-row">';
+            $html .= '<div class="iosindicators-completeness-head"><span>' . htmlescape((string) $label) . '</span><span>' . self::compactNumber((int) $count) . '</span></div>';
+            $html .= '<div class="progress iosindicators-progress lg"><div class="progress-bar" role="progressbar" style="width:' . $percent . '%"></div></div>';
+            $html .= '<div class="iosindicators-completeness-meta">' . number_format($percent, 1, ',', '.') . '% da base resolvida</div>';
+            $html .= '</div>';
+        }
+
+        if (!empty($e['diagnostics'])) {
+            $html .= '<div class="alert alert-light border mt-3 mb-0 small"><strong>Leitura:</strong><ul class="mb-0 mt-1 ps-3">';
+            foreach (array_slice((array) $e['diagnostics'], 0, 4) as $message) {
+                $html .= '<li>' . htmlescape((string) $message) . '</li>';
+            }
+            $html .= '</ul></div>';
         }
 
         $html .= '</div></div>';
