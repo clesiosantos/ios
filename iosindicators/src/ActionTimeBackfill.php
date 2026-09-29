@@ -11,13 +11,17 @@ use Throwable;
 
 final class ActionTimeBackfill extends CommonGLPI
 {
-    public const MARKER = '[IOS-ACTIONTIME-CYCLE-V1]';
+    /** Marcador correto: tempo histórico entre abertura e SOLUÇÃO. */
+    public const MARKER = '[IOS-ACTIONTIME-SOLUTION-V2]';
+
+    /** Marcador da versão 0.9.0, que usava abertura→fechamento. */
+    public const LEGACY_MARKER = '[IOS-ACTIONTIME-CYCLE-V1]';
 
     public static function cronInfo($name): array
     {
         if ($name === 'ActionTimeBackfill') {
             return [
-                'description' => __('Preenche o actiontime de tickets fechados com o tempo de ciclo abertura→fechamento, por meio de task auditável.', 'iosindicators'),
+                'description' => __('Preenche o actiontime de tickets fechados com o tempo histórico abertura→solução, por meio de task auditável.', 'iosindicators'),
             ];
         }
 
@@ -32,13 +36,15 @@ final class ActionTimeBackfill extends CommonGLPI
         }
 
         $result = self::runBatch(null, 'cron');
-        $task->setVolume((int) $result['created']);
+        $task->setVolume((int) ($result['created'] + $result['migrated'] + $result['updated']));
 
         $message = sprintf(
-            'IOS Indicators ActionTime: lidos=%d, elegíveis=%d, criados=%d, já_processados=%d, preservados=%d, ignorados=%d, erros=%d',
+            'IOS Indicators ActionTime: lidos=%d, elegíveis=%d, criados=%d, migrados=%d, atualizados=%d, já_processados=%d, preservados=%d, ignorados=%d, erros=%d',
             $result['read'],
             $result['eligible'],
             $result['created'],
+            $result['migrated'],
+            $result['updated'],
             $result['already_processed'],
             $result['preserved'],
             $result['ignored'],
@@ -47,14 +53,14 @@ final class ActionTimeBackfill extends CommonGLPI
 
         if (!empty($result['processed'])) {
             $ids = array_map(
-                static fn(array $row): string => sprintf('#%d→task#%d(%ds)', (int) $row['ticket_id'], (int) $row['task_id'], (int) $row['actiontime']),
+                static fn(array $row): string => sprintf('#%d→task#%d(%ds,%s)', (int) $row['ticket_id'], (int) $row['task_id'], (int) $row['actiontime'], (string) $row['operation']),
                 array_slice($result['processed'], 0, 30)
             );
             $message .= ' | processados=' . implode(',', $ids);
         }
 
         $task->log($message);
-        return $result['created'] > 0 ? 1 : 0;
+        return ($result['created'] + $result['migrated'] + $result['updated']) > 0 ? 1 : 0;
     }
 
     public static function runBatch(?int $limit = null, string $source = 'manual'): array
@@ -70,6 +76,8 @@ final class ActionTimeBackfill extends CommonGLPI
             'read' => 0,
             'eligible' => 0,
             'created' => 0,
+            'migrated' => 0,
+            'updated' => 0,
             'already_processed' => 0,
             'preserved' => 0,
             'ignored' => 0,
@@ -79,7 +87,7 @@ final class ActionTimeBackfill extends CommonGLPI
 
         try {
             $iterator = $DB->request([
-                'SELECT' => ['id', 'date', 'closedate', 'actiontime'],
+                'SELECT' => ['id', 'date', 'solvedate', 'closedate', 'actiontime'],
                 'FROM' => 'glpi_tickets',
                 'WHERE' => [
                     'is_deleted' => 0,
@@ -90,7 +98,8 @@ final class ActionTimeBackfill extends CommonGLPI
             ]);
 
             foreach ($iterator as $row) {
-                if ($stats['created'] >= $limit) {
+                $changed = $stats['created'] + $stats['migrated'] + $stats['updated'];
+                if ($changed >= $limit) {
                     break;
                 }
 
@@ -101,15 +110,65 @@ final class ActionTimeBackfill extends CommonGLPI
 
                 $stats['read']++;
 
-                if (self::findBackfillTaskId($ticketId) > 0) {
-                    $stats['already_processed']++;
+                $openedAt = (string) ($row['date'] ?? '');
+                $solvedAt = (string) ($row['solvedate'] ?? '');
+                $opened = strtotime($openedAt);
+                $solved = strtotime($solvedAt);
+
+                // A regra funcional validada é abertura -> solução. Fechamento não entra no cálculo.
+                if ($opened === false || $solved === false || $solved <= $opened) {
+                    $stats['ignored']++;
                     continue;
                 }
 
-                $opened = strtotime((string) ($row['date'] ?? ''));
-                $closed = strtotime((string) ($row['closedate'] ?? ''));
-                if ($opened === false || $closed === false || $closed <= $opened) {
+                $seconds = $solved - $opened;
+                if ($seconds <= 0) {
                     $stats['ignored']++;
+                    continue;
+                }
+
+                $existing = self::findBackfillTask($ticketId);
+
+                // Se já temos a versão V2, garantimos que o actiontime reflita a data de solução atual.
+                if ($existing !== null && $existing['marker'] === self::MARKER) {
+                    if ((int) $existing['actiontime'] === $seconds) {
+                        $stats['already_processed']++;
+                        continue;
+                    }
+
+                    try {
+                        self::updateBackfillTask((int) $existing['id'], $ticketId, $seconds, $openedAt, $solvedAt, $source, false);
+                        $stats['updated']++;
+                        $stats['processed'][] = [
+                            'ticket_id' => $ticketId,
+                            'task_id' => (int) $existing['id'],
+                            'actiontime' => $seconds,
+                            'operation' => 'updated',
+                        ];
+                    } catch (Throwable $e) {
+                        $stats['errors']++;
+                        self::logError(sprintf('Ticket #%d: %s', $ticketId, $e->getMessage()), $e);
+                    }
+                    continue;
+                }
+
+                // Migração transparente da v0.9.0: a task abertura->fechamento é corrigida
+                // no mesmo registro para abertura->solução, evitando duplicar actiontime.
+                if ($existing !== null && $existing['marker'] === self::LEGACY_MARKER) {
+                    $stats['eligible']++;
+                    try {
+                        self::updateBackfillTask((int) $existing['id'], $ticketId, $seconds, $openedAt, $solvedAt, $source, true);
+                        $stats['migrated']++;
+                        $stats['processed'][] = [
+                            'ticket_id' => $ticketId,
+                            'task_id' => (int) $existing['id'],
+                            'actiontime' => $seconds,
+                            'operation' => 'migrated',
+                        ];
+                    } catch (Throwable $e) {
+                        $stats['errors']++;
+                        self::logError(sprintf('Ticket #%d: %s', $ticketId, $e->getMessage()), $e);
+                    }
                     continue;
                 }
 
@@ -119,21 +178,16 @@ final class ActionTimeBackfill extends CommonGLPI
                     continue;
                 }
 
-                $seconds = $closed - $opened;
-                if ($seconds <= 0) {
-                    $stats['ignored']++;
-                    continue;
-                }
-
                 $stats['eligible']++;
 
                 try {
-                    $taskId = self::createBackfillTask($ticketId, $seconds, (string) $row['date'], (string) $row['closedate'], $source);
+                    $taskId = self::createBackfillTask($ticketId, $seconds, $openedAt, $solvedAt, $source);
                     $stats['created']++;
                     $stats['processed'][] = [
                         'ticket_id' => $ticketId,
                         'task_id' => $taskId,
                         'actiontime' => $seconds,
+                        'operation' => 'created',
                     ];
                 } catch (Throwable $e) {
                     $stats['errors']++;
@@ -148,17 +202,23 @@ final class ActionTimeBackfill extends CommonGLPI
         return $stats;
     }
 
-    public static function findBackfillTaskId(int $ticketId): int
+    /**
+     * Localiza tanto a task correta V2 quanto a task legada V1.
+     * Prioriza V2 quando as duas existirem.
+     */
+    public static function findBackfillTask(int $ticketId): ?array
     {
         global $DB;
 
         if (!$DB->tableExists('glpi_tickettasks')) {
-            return 0;
+            return null;
         }
+
+        $legacy = null;
 
         try {
             $iterator = $DB->request([
-                'SELECT' => ['id', 'content'],
+                'SELECT' => ['id', 'content', 'actiontime'],
                 'FROM' => 'glpi_tickettasks',
                 'WHERE' => ['tickets_id' => $ticketId],
                 'ORDER' => ['id DESC'],
@@ -167,48 +227,106 @@ final class ActionTimeBackfill extends CommonGLPI
             foreach ($iterator as $row) {
                 $content = html_entity_decode(strip_tags((string) ($row['content'] ?? '')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 if (mb_stripos($content, self::MARKER) !== false) {
-                    return (int) ($row['id'] ?? 0);
+                    return [
+                        'id' => (int) ($row['id'] ?? 0),
+                        'actiontime' => (int) ($row['actiontime'] ?? 0),
+                        'marker' => self::MARKER,
+                    ];
+                }
+                if ($legacy === null && mb_stripos($content, self::LEGACY_MARKER) !== false) {
+                    $legacy = [
+                        'id' => (int) ($row['id'] ?? 0),
+                        'actiontime' => (int) ($row['actiontime'] ?? 0),
+                        'marker' => self::LEGACY_MARKER,
+                    ];
                 }
             }
         } catch (Throwable $e) {
             self::logError('Falha ao verificar ActionTime existente no ticket #' . $ticketId . ': ' . $e->getMessage(), $e);
         }
 
-        return 0;
+        return $legacy;
     }
 
-    private static function createBackfillTask(int $ticketId, int $seconds, string $openedAt, string $closedAt, string $source): int
+    public static function findBackfillTaskId(int $ticketId): int
     {
-        $agentName = trim((string) Settings::get('ai_agent_name', 'IOS NORA'));
-        if ($agentName === '') {
-            $agentName = 'IOS NORA';
-        }
+        $row = self::findBackfillTask($ticketId);
+        return $row !== null ? (int) $row['id'] : 0;
+    }
 
-        $content = '<p><strong>' . self::MARKER . '</strong></p>'
-            . '<p><strong>ActionTime calculado automaticamente para fins analíticos.</strong><br>'
-            . '<strong>Ticket:</strong> #' . $ticketId . '<br>'
-            . '<strong>Abertura:</strong> ' . htmlescape($openedAt) . '<br>'
-            . '<strong>Fechamento:</strong> ' . htmlescape($closedAt) . '<br>'
-            . '<strong>Tempo de ciclo registrado:</strong> ' . self::formatDuration($seconds) . ' (' . $seconds . ' segundos)<br>'
-            . '<strong>Origem:</strong> IOS Indicators / ' . htmlescape($source) . '<br>'
-            . '<strong>Agente de referência:</strong> ' . htmlescape($agentName) . '</p>'
-            . '<p><em>Este ActionTime representa a diferença abertura→fechamento e deve ser interpretado como tempo de ciclo operacional, não como apontamento humano real de esforço.</em></p>';
-
+    private static function createBackfillTask(int $ticketId, int $seconds, string $openedAt, string $solvedAt, string $source): int
+    {
         $task = new TicketTask();
         $taskId = (int) $task->add([
             'tickets_id' => $ticketId,
-            'content' => $content,
+            'content' => self::buildContent($ticketId, $seconds, $openedAt, $solvedAt, $source, false),
             'actiontime' => $seconds,
             'state' => Planning::DONE,
             'is_private' => 0,
         ]);
 
         if ($taskId <= 0) {
-            throw new \RuntimeException('Não foi possível criar a task de ActionTime no GLPI.');
+            throw new \RuntimeException('Não foi possível criar a task de ActionTime histórico no GLPI.');
         }
 
-        // Em versões do GLPI 11 onde a task não propaga imediatamente o actiontime
-        // para o ticket, fazemos um fallback somente quando o ticket continua zerado.
+        self::ensureTicketActiontimeWhenZero($ticketId, $seconds);
+        return $taskId;
+    }
+
+    private static function updateBackfillTask(int $taskId, int $ticketId, int $seconds, string $openedAt, string $solvedAt, string $source, bool $migrated): void
+    {
+        $task = new TicketTask();
+        if (!$task->getFromDB($taskId)) {
+            throw new \RuntimeException('Task histórica #' . $taskId . ' não encontrada para atualização.');
+        }
+
+        $ok = $task->update([
+            'id' => $taskId,
+            'content' => self::buildContent($ticketId, $seconds, $openedAt, $solvedAt, $source, $migrated),
+            'actiontime' => $seconds,
+            'state' => Planning::DONE,
+            'is_private' => 0,
+        ]);
+
+        if (!$ok) {
+            throw new \RuntimeException('Não foi possível atualizar a task histórica #' . $taskId . '.');
+        }
+
+        self::ensureTicketActiontimeWhenZero($ticketId, $seconds);
+    }
+
+    private static function buildContent(int $ticketId, int $seconds, string $openedAt, string $solvedAt, string $source, bool $migrated): string
+    {
+        $agentName = trim((string) Settings::get('ai_agent_name', 'IOS NORA'));
+        if ($agentName === '') {
+            $agentName = 'IOS NORA';
+        }
+
+        $migrationLine = $migrated
+            ? '<br><strong>Migração:</strong> corrigido da regra antiga abertura→fechamento para abertura→solução.'
+            : '';
+
+        return '<p><strong>' . self::MARKER . '</strong></p>'
+            . '<p><strong>ActionTime histórico calculado automaticamente para fins analíticos.</strong><br>'
+            . '<strong>Ticket:</strong> #' . $ticketId . '<br>'
+            . '<strong>Abertura:</strong> ' . htmlescape($openedAt) . '<br>'
+            . '<strong>Solução:</strong> ' . htmlescape($solvedAt) . '<br>'
+            . '<strong>ActionTime histórico:</strong> ' . self::formatDuration($seconds) . ' (' . $seconds . ' segundos)<br>'
+            . '<strong>Regra:</strong> data/hora da solução − data/hora da abertura<br>'
+            . '<strong>Origem:</strong> IOS Indicators / ' . htmlescape($source) . '<br>'
+            . '<strong>Agente de referência:</strong> ' . htmlescape($agentName)
+            . $migrationLine
+            . '</p>'
+            . '<p><em>Este ActionTime representa o tempo histórico do incidente até a solução. A estimativa IA/RCA permanece separada para permitir a comparação Histórico × IOS NORA sem somar os dois tempos no ticket.</em></p>';
+    }
+
+    /**
+     * Em algumas instalações do GLPI 11 a atualização da task pode não refletir
+     * imediatamente no agregado do ticket. Só fazemos fallback quando ele está zero,
+     * para não apagar outros apontamentos existentes.
+     */
+    private static function ensureTicketActiontimeWhenZero(int $ticketId, int $seconds): void
+    {
         $ticket = new Ticket();
         if ($ticket->getFromDB($ticketId) && (int) ($ticket->fields['actiontime'] ?? 0) <= 0) {
             $ticket->update([
@@ -217,8 +335,6 @@ final class ActionTimeBackfill extends CommonGLPI
                 '_disablenotif' => true,
             ]);
         }
-
-        return $taskId;
     }
 
     private static function formatDuration(int $seconds): string
