@@ -1,6 +1,7 @@
 <?php
 
 use GlpiPlugin\Iosindicators\Dashboard;
+use GlpiPlugin\Iosindicators\EfficiencyMetrics;
 use GlpiPlugin\Iosindicators\Metrics;
 
 include(__DIR__ . '/../../../inc/includes.php');
@@ -43,6 +44,7 @@ foreach ($cssFiles as $cssFile) {
 try {
     [$from, $to] = Metrics::periodFromRequest($_GET);
     $summary = Metrics::summary($from, $to);
+    $efficiency = EfficiencyMetrics::summary($from, $to);
 
     echo '<div class="ios-dashboard-wrapper iosindicators-wrapper">';
 
@@ -68,7 +70,7 @@ try {
 
     echo '<div class="ios-context-strip">';
     echo '<div><i class="ti ti-calendar-stats"></i><span>Período considerado: <strong>' . $from->format('d/m/Y H:i') . '</strong> até <strong>' . $to->format('d/m/Y H:i') . '</strong></span></div>';
-    echo '<div class="ios-context-note"><i class="ti ti-info-circle"></i><span>O recorte usa a data de abertura do ticket.</span></div>';
+    echo '<div class="ios-context-note"><i class="ti ti-info-circle"></i><span>Abas operacionais usam a data de abertura; <strong>Eficiência IA</strong> usa a data da solução.</span></div>';
     echo '</div>';
 
     if (!empty($summary['diagnostics']) && Session::haveRight('config', UPDATE)) {
@@ -79,7 +81,7 @@ try {
         echo '</ul><div class="mt-2"><a href="diagnostics.php">Abrir diagnóstico técnico completo</a></div></div>';
     }
 
-    Dashboard::renderPage($summary);
+    Dashboard::renderPage($summary, $efficiency);
     echo '</div>';
 
     echo <<<'HTML'
