@@ -207,6 +207,17 @@ final class ActionTimeBackfill extends CommonGLPI
             throw new \RuntimeException('Não foi possível criar a task de ActionTime no GLPI.');
         }
 
+        // Em versões do GLPI 11 onde a task não propaga imediatamente o actiontime
+        // para o ticket, fazemos um fallback somente quando o ticket continua zerado.
+        $ticket = new Ticket();
+        if ($ticket->getFromDB($ticketId) && (int) ($ticket->fields['actiontime'] ?? 0) <= 0) {
+            $ticket->update([
+                'id' => $ticketId,
+                'actiontime' => $seconds,
+                '_disablenotif' => true,
+            ]);
+        }
+
         return $taskId;
     }
 
