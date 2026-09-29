@@ -11,6 +11,7 @@ final class Settings
         return [
             'default_period_days'           => 30,
             'ai_task_tag'                   => '[IA-RCA]',
+            'ai_agent_name'                 => 'IOS NORA',
             'remote_task_tag'               => '[REMOTO]',
             'zabbix_marker'                 => 'Zabbix',
             'mbtr_source'                   => 'none',
@@ -35,6 +36,10 @@ final class Settings
             'ai_rca_request_delay_ms'       => 1500,
             'ai_rca_failure_cooldown_minutes' => 60,
             'ai_rca_redact_sensitive'       => 1,
+            'actiontime_backfill_enabled'   => 0,
+            'actiontime_batch_size'         => 100,
+            'actiontime_scan_limit'         => 5000,
+            'actiontime_fill_only_zero'     => 1,
         ];
     }
 
@@ -45,8 +50,6 @@ final class Settings
             \Config::getConfigurationValues(self::CONTEXT)
         );
 
-        // Migração transparente da configuração anterior para o modelo econômico.
-        // Ao salvar a tela novamente, o novo valor passa a ser persistido no GLPI.
         if (($settings['ai_rca_model'] ?? '') === 'gemini-3.8-flash') {
             $settings['ai_rca_model'] = 'gemini-3.5-flash-lite';
         }
@@ -70,6 +73,8 @@ final class Settings
         $aiTimeout = max(10, min(120, (int)($input['ai_rca_timeout_seconds'] ?? 45)));
         $aiDelayMs = max(0, min(10000, (int)($input['ai_rca_request_delay_ms'] ?? 1500)));
         $aiCooldown = max(1, min(1440, (int)($input['ai_rca_failure_cooldown_minutes'] ?? 60)));
+        $actiontimeBatchSize = max(1, min(1000, (int)($input['actiontime_batch_size'] ?? 100)));
+        $actiontimeScanLimit = max($actiontimeBatchSize, min(10000, (int)($input['actiontime_scan_limit'] ?? 5000)));
 
         $mbtrAllowed = ['none', 'waiting_duration', 'close_delay_stat', 'actiontime', 'solve_delay_stat'];
         $mbtrSource = (string)($input['mbtr_source'] ?? 'none');
@@ -80,6 +85,7 @@ final class Settings
         $values = [
             'default_period_days'           => $days,
             'ai_task_tag'                   => self::cleanTag((string)($input['ai_task_tag'] ?? '[IA-RCA]')),
+            'ai_agent_name'                 => self::cleanName((string)($input['ai_agent_name'] ?? 'IOS NORA'), 'IOS NORA'),
             'remote_task_tag'               => self::cleanTag((string)($input['remote_task_tag'] ?? '[REMOTO]')),
             'zabbix_marker'                 => trim((string)($input['zabbix_marker'] ?? 'Zabbix')),
             'mbtr_source'                   => $mbtrSource,
@@ -103,6 +109,10 @@ final class Settings
             'ai_rca_request_delay_ms'       => $aiDelayMs,
             'ai_rca_failure_cooldown_minutes' => $aiCooldown,
             'ai_rca_redact_sensitive'       => isset($input['ai_rca_redact_sensitive']) ? 1 : 0,
+            'actiontime_backfill_enabled'   => isset($input['actiontime_backfill_enabled']) ? 1 : 0,
+            'actiontime_batch_size'         => $actiontimeBatchSize,
+            'actiontime_scan_limit'         => $actiontimeScanLimit,
+            'actiontime_fill_only_zero'     => isset($input['actiontime_fill_only_zero']) ? 1 : 0,
         ];
 
         if (isset($input['reset_classifier_cursor']) || isset($input['classifier_cursor_id'])) {
