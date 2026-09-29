@@ -21,7 +21,7 @@ final class ActionTimeBackfill extends CommonGLPI
     {
         if ($name === 'ActionTimeBackfill') {
             return [
-                'description' => __('Preenche o actiontime de tickets fechados com o tempo histórico abertura→solução, por meio de task auditável.', 'iosindicators'),
+                'description' => __('Preenche o actiontime de tickets solucionados/fechados com o tempo histórico abertura→solução, por meio de task auditável.', 'iosindicators'),
             ];
         }
 
@@ -85,14 +85,25 @@ final class ActionTimeBackfill extends CommonGLPI
             'processed' => [],
         ];
 
+        // Mantemos exatamente o mesmo universo da IA/RCA: tickets solucionados OU
+        // fechados. A métrica é abertura→solução, portanto não há motivo para
+        // aguardar o fechamento administrativo do ticket.
+        $where = [
+            'is_deleted' => 0,
+            'status' => [Ticket::SOLVED, Ticket::CLOSED],
+        ];
+
+        // Alinha também o tipo de ticket com o classificador/IA quando o painel
+        // estiver configurado para considerar somente incidentes.
+        if ((int) Settings::get('show_only_incidents', 1) === 1) {
+            $where['type'] = Ticket::INCIDENT_TYPE;
+        }
+
         try {
             $iterator = $DB->request([
                 'SELECT' => ['id', 'date', 'solvedate', 'closedate', 'actiontime'],
                 'FROM' => 'glpi_tickets',
-                'WHERE' => [
-                    'is_deleted' => 0,
-                    'status' => Ticket::CLOSED,
-                ],
+                'WHERE' => $where,
                 'ORDER' => ['id DESC'],
                 'LIMIT' => $scanLimit,
             ]);
@@ -132,7 +143,6 @@ final class ActionTimeBackfill extends CommonGLPI
                 // Se já temos a versão V2, garantimos que o actiontime reflita a data de solução atual.
                 if ($existing !== null && $existing['marker'] === self::MARKER) {
                     if ((int) $existing['actiontime'] === $seconds) {
-                        // Mesmo quando já está correto, sincronizamos o agregado do ticket com a soma das tasks.
                         self::syncTicketActiontimeFromTasks($ticketId);
                         $stats['already_processed']++;
                         continue;
@@ -198,7 +208,7 @@ final class ActionTimeBackfill extends CommonGLPI
             }
         } catch (Throwable $e) {
             $stats['errors']++;
-            self::logError('Falha ao selecionar tickets fechados para ActionTime: ' . $e->getMessage(), $e);
+            self::logError('Falha ao selecionar tickets solucionados/fechados para ActionTime: ' . $e->getMessage(), $e);
         }
 
         return $stats;
