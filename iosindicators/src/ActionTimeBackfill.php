@@ -115,7 +115,7 @@ final class ActionTimeBackfill extends CommonGLPI
                 $opened = strtotime($openedAt);
                 $solved = strtotime($solvedAt);
 
-                // A regra funcional validada é abertura -> solução. Fechamento não entra no cálculo.
+                // Regra funcional: abertura -> solução. Fechamento não entra no cálculo.
                 if ($opened === false || $solved === false || $solved <= $opened) {
                     $stats['ignored']++;
                     continue;
@@ -132,6 +132,8 @@ final class ActionTimeBackfill extends CommonGLPI
                 // Se já temos a versão V2, garantimos que o actiontime reflita a data de solução atual.
                 if ($existing !== null && $existing['marker'] === self::MARKER) {
                     if ((int) $existing['actiontime'] === $seconds) {
+                        // Mesmo quando já está correto, sincronizamos o agregado do ticket com a soma das tasks.
+                        self::syncTicketActiontimeFromTasks($ticketId);
                         $stats['already_processed']++;
                         continue;
                     }
@@ -269,7 +271,7 @@ final class ActionTimeBackfill extends CommonGLPI
             throw new \RuntimeException('Não foi possível criar a task de ActionTime histórico no GLPI.');
         }
 
-        self::ensureTicketActiontimeWhenZero($ticketId, $seconds);
+        self::syncTicketActiontimeFromTasks($ticketId);
         return $taskId;
     }
 
@@ -292,7 +294,7 @@ final class ActionTimeBackfill extends CommonGLPI
             throw new \RuntimeException('Não foi possível atualizar a task histórica #' . $taskId . '.');
         }
 
-        self::ensureTicketActiontimeWhenZero($ticketId, $seconds);
+        self::syncTicketActiontimeFromTasks($ticketId);
     }
 
     private static function buildContent(int $ticketId, int $seconds, string $openedAt, string $solvedAt, string $source, bool $migrated): string
@@ -321,20 +323,47 @@ final class ActionTimeBackfill extends CommonGLPI
     }
 
     /**
-     * Em algumas instalações do GLPI 11 a atualização da task pode não refletir
-     * imediatamente no agregado do ticket. Só fazemos fallback quando ele está zero,
-     * para não apagar outros apontamentos existentes.
+     * Sincroniza o campo agregado glpi_tickets.actiontime com a soma das tasks do ticket.
+     * Assim, criação e migração da task histórica ficam refletidas também no ticket,
+     * sem apagar outros actiontimes eventualmente existentes.
      */
-    private static function ensureTicketActiontimeWhenZero(int $ticketId, int $seconds): void
+    private static function syncTicketActiontimeFromTasks(int $ticketId): void
     {
-        $ticket = new Ticket();
-        if ($ticket->getFromDB($ticketId) && (int) ($ticket->fields['actiontime'] ?? 0) <= 0) {
-            $ticket->update([
-                'id' => $ticketId,
-                'actiontime' => $seconds,
-                '_disablenotif' => true,
-            ]);
+        global $DB;
+
+        if (!$DB->tableExists('glpi_tickettasks')) {
+            return;
         }
+
+        $total = 0;
+        try {
+            $iterator = $DB->request([
+                'SELECT' => ['actiontime'],
+                'FROM' => 'glpi_tickettasks',
+                'WHERE' => ['tickets_id' => $ticketId],
+            ]);
+            foreach ($iterator as $row) {
+                $total += max(0, (int) ($row['actiontime'] ?? 0));
+            }
+        } catch (Throwable $e) {
+            self::logError('Falha ao somar actiontime das tasks do ticket #' . $ticketId . ': ' . $e->getMessage(), $e);
+            return;
+        }
+
+        $ticket = new Ticket();
+        if (!$ticket->getFromDB($ticketId)) {
+            return;
+        }
+
+        if ((int) ($ticket->fields['actiontime'] ?? 0) === $total) {
+            return;
+        }
+
+        $ticket->update([
+            'id' => $ticketId,
+            'actiontime' => $total,
+            '_disablenotif' => true,
+        ]);
     }
 
     private static function formatDuration(int $seconds): string
