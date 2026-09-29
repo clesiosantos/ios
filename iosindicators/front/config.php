@@ -11,6 +11,11 @@ include(__DIR__ . '/../../../inc/includes.php');
 Session::checkRight('config', UPDATE);
 Plugin::load('iosindicators');
 
+// Em páginas legadas do GLPI 11, $_SERVER['PHP_SELF'] pode apontar para
+// /front/central.php por causa do LegacyFileLoadController. Mantemos uma URL
+// explícita para que Salvar/Processar sempre retorne à configuração do plugin.
+$configUrl = '/plugins/iosindicators/front/config.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Settings::save($_POST);
 
@@ -98,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Session::addMessageAfterRedirect(__('Configurações salvas.', 'iosindicators'), true, INFO);
     }
 
-    Html::redirect($_SERVER['PHP_SELF']);
+    Html::redirect($configUrl);
 }
 
 $config = Settings::all();
@@ -108,7 +113,7 @@ $historySummary = AiRcaHistory::summary(1000);
 
 Html::header(
     __('IOS - Indicadores de Incidentes', 'iosindicators'),
-    $_SERVER['PHP_SELF'],
+    $configUrl,
     'config',
     'plugins'
 );
@@ -116,7 +121,7 @@ Html::header(
 echo '<div class="container py-3" style="max-width: 1250px">';
 
 echo '<div class="card mb-3"><div class="card-header"><strong>Configuração dos Indicadores</strong></div><div class="card-body">';
-echo '<form method="post">';
+echo '<form method="post" action="' . htmlescape($configUrl) . '">';
 echo '<div class="row g-3">';
 echo '<div class="col-md-3"><label class="form-label">Período padrão (dias)</label><input class="form-control" type="number" min="1" max="3650" name="default_period_days" value="' . (int)$config['default_period_days'] . '"></div>';
 echo '<div class="col-md-3"><label class="form-label">Agente de IA</label><input class="form-control" type="text" name="ai_agent_name" value="' . htmlescape((string)$config['ai_agent_name']) . '"><div class="form-text">Sugestão: IOS NORA — Núcleo Operacional de Resposta Assistida.</div></div>';
@@ -245,7 +250,8 @@ if ($history === []) {
         if ($type === 'batch') {
             echo '<td colspan="2"><span class="badge bg-info text-dark">LOTE</span></td>';
         } else {
-            echo '<td>' . ($ticketId > 0 ? '<a href="' . htmlescape($CFG_GLPI['root_doc'] . '/front/ticket.form.php?id=' . $ticketId) . '">#' . $ticketId . '</a>' : '—') . '</td>';
+            $ticketUrl = $ticketId > 0 ? Ticket::getFormURLWithID($ticketId) : '';
+            echo '<td>' . ($ticketId > 0 ? '<a href="' . htmlescape($ticketUrl) . '">#' . $ticketId . '</a>' : '—') . '</td>';
             echo '<td>' . ($taskId > 0 ? '#' . $taskId : '—') . '</td>';
         }
         echo '<td><span class="badge ' . $statusClass . '">' . htmlescape($statusLabel) . '</span></td>';
