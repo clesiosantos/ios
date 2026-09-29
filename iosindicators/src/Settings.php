@@ -39,7 +39,9 @@ final class Settings
             'actiontime_backfill_enabled'   => 0,
             'actiontime_batch_size'         => 100,
             'actiontime_scan_limit'         => 5000,
-            'actiontime_fill_only_zero'     => 1,
+            // A baseline histórica deve existir em todos os tickets fechados.
+            // Quem desejar preservar tickets com ActionTime prévio pode ligar a opção na UI.
+            'actiontime_fill_only_zero'     => 0,
         ];
     }
 
