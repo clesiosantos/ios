@@ -1,5 +1,6 @@
 <?php
 
+use GlpiPlugin\Iosindicators\ActionTimeBackfill;
 use GlpiPlugin\Iosindicators\AiRca;
 use GlpiPlugin\Iosindicators\Classifier;
 use GlpiPlugin\Iosindicators\Settings;
@@ -22,6 +23,7 @@ function plugin_iosindicators_install(): bool
     // Ações automáticas visíveis em Configuração > Ações automáticas.
     CronTask::Register(Classifier::class, 'Classifier', 300);
     CronTask::Register(AiRca::class, 'AiRca', 300);
+    CronTask::Register(ActionTimeBackfill::class, 'ActionTimeBackfill', 300);
 
     return true;
 }
