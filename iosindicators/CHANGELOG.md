@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0
+- Consolidada a versão de apresentação do IOS Indicators como plugin de governança operacional para GLPI 11.
+- Versão promovida para `1.0.0` após estabilização do dashboard, classificação automática, IA/RCA, ActionTime histórico e eficiência potencial com IA.
+- Adicionada documentação embarcada no diretório `docs/` com visão geral, arquitetura, operação, indicadores, governança de IA e evolução do produto.
+- Dashboard principal consolidado com abas: Visão executiva, Velocidade operacional, Qualidade do dado, Eficiência IA e Tempo Real.
+- A aba Eficiência IA passa a fazer parte da narrativa principal do produto, comparando ActionTime histórico abertura→solução com estimativa da IOS NORA.
+- O agente de IA passa a ser apresentado como **IOS NORA — Núcleo Operacional de Resposta Assistida**.
+- Mantida a separação entre dados reais e estimativas: a task IA/RCA não registra actiontime, enquanto o ActionTime histórico fica em task própria.
+- Documentada a leitura correta de disponibilidade estimada: `MTBF / (MTBF + MTTR)`, exibindo `—` quando não há dados suficientes.
+- Documentadas as ações automáticas `Classifier`, `AiRca` e `ActionTimeBackfill`, incluindo recomendações de operação e validação.
+- Documentado o uso do volume `/var/glpi/config` para chave Gemini e logs persistentes.
+
 ## 0.7.1
 - Corrigido o erro `404 Not Found` dos arquivos `iosindicators.css` e `iosindicators-modern.css` em instalações GLPI 11 cujo webroot não publica diretamente os assets em `/plugins/<plugin>/css`.
 - O dashboard passa a carregar os dois arquivos CSS no lado do servidor e injetá-los inline na página, eliminando a dependência da rota pública dos assets.
