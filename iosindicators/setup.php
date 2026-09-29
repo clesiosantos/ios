@@ -1,6 +1,7 @@
 <?php
 
 use Glpi\Plugin\Hooks;
+use GlpiPlugin\Iosindicators\ActionTimeBackfill;
 use GlpiPlugin\Iosindicators\AiRca;
 use GlpiPlugin\Iosindicators\Classifier;
 use GlpiPlugin\Iosindicators\Dashboard;
@@ -8,7 +9,7 @@ use GlpiPlugin\Iosindicators\Dashboard;
 /**
  * IOS Indicators - Indicadores operacionais e classificação de incidentes para GLPI 11.
  */
-define('PLUGIN_IOSINDICATORS_VERSION', '0.8.3');
+define('PLUGIN_IOSINDICATORS_VERSION', '0.9.0');
 define('PLUGIN_IOSINDICATORS_MIN_GLPI_VERSION', '11.0.0');
 define('PLUGIN_IOSINDICATORS_MAX_GLPI_VERSION', '11.0.99');
 
@@ -74,6 +75,7 @@ function plugin_init_iosindicators(): void
     Plugin::registerClass(Dashboard::class);
     Plugin::registerClass(Classifier::class);
     Plugin::registerClass(AiRca::class);
+    Plugin::registerClass(ActionTimeBackfill::class);
 
     $PLUGIN_HOOKS[Hooks::ITEM_ADD]['iosindicators'] = [
         Ticket::class => [Classifier::class, 'onTicketAdd'],
