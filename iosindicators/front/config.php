@@ -1,5 +1,6 @@
 <?php
 
+use GlpiPlugin\Iosindicators\ActionTimeBackfill;
 use GlpiPlugin\Iosindicators\AiRca;
 use GlpiPlugin\Iosindicators\AiRcaHistory;
 use GlpiPlugin\Iosindicators\Classifier;
@@ -61,6 +62,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         Session::addMessageAfterRedirect($message, true, $result['errors'] > 0 ? WARNING : INFO);
+    } elseif (isset($_POST['run_actiontime_now'])) {
+        $result = ActionTimeBackfill::runBatch(null, 'manual');
+        $message = sprintf(
+            'ActionTime executado: lidos=%d, elegíveis=%d, tasks criadas=%d, já processados=%d, preservados=%d, ignorados=%d, erros=%d.',
+            $result['read'],
+            $result['eligible'],
+            $result['created'],
+            $result['already_processed'],
+            $result['preserved'],
+            $result['ignored'],
+            $result['errors']
+        );
+
+        if (!empty($result['processed'])) {
+            $items = [];
+            foreach (array_slice($result['processed'], 0, 40) as $item) {
+                $items[] = sprintf('Ticket #%d → Task #%d (%ds)', $item['ticket_id'], $item['task_id'], $item['actiontime']);
+            }
+            $message .= ' Processados: ' . implode(' | ', $items) . '.';
+        }
+
+        Session::addMessageAfterRedirect($message, true, $result['errors'] > 0 ? WARNING : INFO);
     } elseif (isset($_POST['reset_classifier_cursor'])) {
         Session::addMessageAfterRedirect(__('Cursor do classificador reiniciado. Na próxima execução o histórico será reavaliado.', 'iosindicators'), true, INFO);
     } else {
@@ -87,9 +110,10 @@ echo '<div class="container py-3" style="max-width: 1250px">';
 echo '<div class="card mb-3"><div class="card-header"><strong>Configuração dos Indicadores</strong></div><div class="card-body">';
 echo '<form method="post">';
 echo '<div class="row g-3">';
-echo '<div class="col-md-4"><label class="form-label">Período padrão (dias)</label><input class="form-control" type="number" min="1" max="3650" name="default_period_days" value="' . (int)$config['default_period_days'] . '"></div>';
-echo '<div class="col-md-4"><label class="form-label">Etiqueta da tarefa IA / RCA</label><input class="form-control" type="text" name="ai_task_tag" value="' . htmlescape((string)$config['ai_task_tag']) . '"><div class="form-text">Ex.: [IA-RCA]</div></div>';
-echo '<div class="col-md-4"><label class="form-label">Etiqueta de atividade remota</label><input class="form-control" type="text" name="remote_task_tag" value="' . htmlescape((string)$config['remote_task_tag']) . '"><div class="form-text">Ex.: [REMOTO]</div></div>';
+echo '<div class="col-md-3"><label class="form-label">Período padrão (dias)</label><input class="form-control" type="number" min="1" max="3650" name="default_period_days" value="' . (int)$config['default_period_days'] . '"></div>';
+echo '<div class="col-md-3"><label class="form-label">Agente de IA</label><input class="form-control" type="text" name="ai_agent_name" value="' . htmlescape((string)$config['ai_agent_name']) . '"><div class="form-text">Sugestão: IOS NORA — Núcleo Operacional de Resposta Assistida.</div></div>';
+echo '<div class="col-md-3"><label class="form-label">Etiqueta da tarefa IA / RCA</label><input class="form-control" type="text" name="ai_task_tag" value="' . htmlescape((string)$config['ai_task_tag']) . '"></div>';
+echo '<div class="col-md-3"><label class="form-label">Etiqueta de atividade remota</label><input class="form-control" type="text" name="remote_task_tag" value="' . htmlescape((string)$config['remote_task_tag']) . '"></div>';
 echo '<div class="col-md-6"><label class="form-label">Marcador/origem Zabbix</label><input class="form-control" type="text" name="zabbix_marker" value="' . htmlescape((string)$config['zabbix_marker']) . '"></div>';
 echo '<div class="col-md-6"><label class="form-label">Fonte provisória do MBTR</label><select class="form-select" name="mbtr_source">';
 $options = [
@@ -129,13 +153,10 @@ echo '</div>';
 echo '<hr class="my-4">';
 echo '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2"><div><h3 class="h4 mb-1">IA / RCA com Gemini</h3><p class="text-muted mb-0">Gera RCA estruturada, registra sucesso/falha e estima esforço sem alterar o actiontime real.</p></div>';
 echo '<span class="badge ' . ($hasGeminiKey ? 'bg-success' : 'bg-warning text-dark') . '">' . ($hasGeminiKey ? 'GEMINI_API_KEY disponível' : 'GEMINI_API_KEY não configurada') . '</span></div>';
-
-echo '<div class="alert alert-info mt-3"><strong>Modo econômico:</strong> recomendamos <code>gemini-3.5-flash-lite</code> para este fluxo de análise estruturada em alto volume. A rotina também aplica intervalo entre chamadas e cooldown em erros 429/503 para reduzir consumo e evitar tempestade de requisições.</div>';
-
+echo '<div class="alert alert-info mt-3"><strong>Agente:</strong> <code>' . htmlescape((string)$config['ai_agent_name']) . '</code>. <strong>Modo econômico:</strong> recomendamos <code>gemini-3.5-flash-lite</code> para análise estruturada em alto volume.</div>';
 echo '<div class="row g-3 mt-1">';
-echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_enabled" id="ai_rca_enabled"' . ((int)$config['ai_rca_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_enabled">Habilitar ação automática IOS - AI RCA</label><div class="form-text">Procura tickets Solved/Closed sem task [IA-RCA].</div></div></div>';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_enabled" id="ai_rca_enabled"' . ((int)$config['ai_rca_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_enabled">Habilitar ação automática IOS - AI RCA</label></div></div>';
 echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="ai_rca_redact_sensitive" id="ai_rca_redact_sensitive"' . ((int)$config['ai_rca_redact_sensitive'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="ai_rca_redact_sensitive">Redigir e-mails, telefones e CPF antes do envio</label></div></div>';
-
 echo '<div class="col-md-4"><label class="form-label">Modelo Gemini</label><select class="form-select" name="ai_rca_model">';
 $modelOptions = [
     'gemini-3.5-flash-lite' => 'Gemini 3.5 Flash-Lite — econômico / recomendado',
@@ -148,20 +169,30 @@ foreach ($modelOptions as $value => $label) {
 echo '</select></div>';
 echo '<div class="col-md-2"><label class="form-label">Tasks por lote</label><input class="form-control" type="number" min="1" max="50" name="ai_rca_batch_size" value="' . (int)$config['ai_rca_batch_size'] . '"></div>';
 echo '<div class="col-md-2"><label class="form-label">Janela de busca</label><input class="form-control" type="number" min="1" max="5000" name="ai_rca_scan_limit" value="' . (int)$config['ai_rca_scan_limit'] . '"></div>';
-echo '<div class="col-md-2"><label class="form-label">Contexto máx.</label><input class="form-control" type="number" min="4000" max="50000" name="ai_rca_max_context_chars" value="' . (int)$config['ai_rca_max_context_chars'] . '"><div class="form-text">Caracteres enviados.</div></div>';
-echo '<div class="col-md-2"><label class="form-label">Timeout</label><input class="form-control" type="number" min="10" max="120" name="ai_rca_timeout_seconds" value="' . (int)$config['ai_rca_timeout_seconds'] . '"><div class="form-text">Segundos.</div></div>';
-echo '<div class="col-md-3"><label class="form-label">Intervalo entre chamadas</label><div class="input-group"><input class="form-control" type="number" min="0" max="10000" step="100" name="ai_rca_request_delay_ms" value="' . (int)$config['ai_rca_request_delay_ms'] . '"><span class="input-group-text">ms</span></div><div class="form-text">Recomendado: 1500 ms.</div></div>';
-echo '<div class="col-md-3"><label class="form-label">Cooldown após falha</label><div class="input-group"><input class="form-control" type="number" min="1" max="1440" name="ai_rca_failure_cooldown_minutes" value="' . (int)$config['ai_rca_failure_cooldown_minutes'] . '"><span class="input-group-text">min</span></div><div class="form-text">Evita repetir ticket com 429/503 em toda execução.</div></div>';
+echo '<div class="col-md-2"><label class="form-label">Contexto máx.</label><input class="form-control" type="number" min="4000" max="50000" name="ai_rca_max_context_chars" value="' . (int)$config['ai_rca_max_context_chars'] . '"></div>';
+echo '<div class="col-md-2"><label class="form-label">Timeout</label><input class="form-control" type="number" min="10" max="120" name="ai_rca_timeout_seconds" value="' . (int)$config['ai_rca_timeout_seconds'] . '"></div>';
+echo '<div class="col-md-3"><label class="form-label">Intervalo entre chamadas</label><div class="input-group"><input class="form-control" type="number" min="0" max="10000" step="100" name="ai_rca_request_delay_ms" value="' . (int)$config['ai_rca_request_delay_ms'] . '"><span class="input-group-text">ms</span></div></div>';
+echo '<div class="col-md-3"><label class="form-label">Cooldown após falha</label><div class="input-group"><input class="form-control" type="number" min="1" max="1440" name="ai_rca_failure_cooldown_minutes" value="' . (int)$config['ai_rca_failure_cooldown_minutes'] . '"><span class="input-group-text">min</span></div></div>';
+echo '</div>';
+echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong> a chave continua fora do banco/GitHub. O plugin usa o volume <code>/var/glpi/config</code> montado a partir de <code>/opt/glpi/glpi11/config</code>.</div>';
+echo '<div class="alert alert-secondary"><strong>Histórico:</strong> cada sucesso, falha HTTP, timeout e lote executado é gravado em <code>' . htmlescape(AiRcaHistory::filePathForDisplay()) . '</code>.</div>';
+
+echo '<hr class="my-4">';
+echo '<div><h3 class="h4 mb-1">ActionTime histórico e eficiência IA</h3><p class="text-muted">Para tickets fechados, cria uma task auditável cujo <code>actiontime</code> é a diferença entre abertura e fechamento. O valor representa <strong>tempo de ciclo operacional</strong>, não esforço humano real.</p></div>';
+echo '<div class="alert alert-warning mt-3"><strong>Importante:</strong> por segurança, a opção padrão preserva tickets que já possuem ActionTime maior que zero. Assim não sobrescrevemos apontamentos humanos existentes.</div>';
+echo '<div class="row g-3">';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="actiontime_backfill_enabled" id="actiontime_backfill_enabled"' . ((int)$config['actiontime_backfill_enabled'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="actiontime_backfill_enabled">Habilitar ação automática IOS - ActionTime Backfill</label><div class="form-text">Percorre tickets fechados e cria uma task marcada com [IOS-ACTIONTIME-CYCLE-V1].</div></div></div>';
+echo '<div class="col-md-6"><div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="actiontime_fill_only_zero" id="actiontime_fill_only_zero"' . ((int)$config['actiontime_fill_only_zero'] === 1 ? ' checked' : '') . '><label class="form-check-label" for="actiontime_fill_only_zero">Preencher somente tickets com ActionTime igual a zero</label><div class="form-text">Recomendado para preservar tempos reais já existentes.</div></div></div>';
+echo '<div class="col-md-3"><label class="form-label">Tickets por lote</label><input class="form-control" type="number" min="1" max="1000" name="actiontime_batch_size" value="' . (int)$config['actiontime_batch_size'] . '"><div class="form-text">Sugestão inicial: 100.</div></div>';
+echo '<div class="col-md-3"><label class="form-label">Janela de busca</label><input class="form-control" type="number" min="1" max="10000" name="actiontime_scan_limit" value="' . (int)$config['actiontime_scan_limit'] . '"><div class="form-text">Máximo de tickets fechados verificados por execução.</div></div>';
 echo '</div>';
 
-echo '<div class="alert alert-warning mt-3 mb-3"><strong>Segredo da API:</strong> a chave continua fora do banco/GitHub. O plugin usa o volume <code>/var/glpi/config</code> montado a partir de <code>/opt/glpi/glpi11/config</code>.</div>';
-echo '<div class="alert alert-secondary"><strong>Histórico:</strong> cada sucesso, falha HTTP, timeout e lote executado é gravado em <code>' . htmlescape(AiRcaHistory::filePathForDisplay()) . '</code>. Tasks existentes também são retroalimentadas no histórico sem nova chamada à Gemini.</div>';
-
 echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
-echo '<div class="d-flex flex-wrap gap-2">';
+echo '<div class="d-flex flex-wrap gap-2 mt-4">';
 echo '<button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy"></i> Salvar</button>';
 echo '<button type="submit" name="run_classifier_now" value="1" class="btn btn-success"><i class="ti ti-player-play"></i> Processar classificador</button>';
 echo '<button type="submit" name="run_ai_rca_now" value="1" class="btn btn-info"' . (!$hasGeminiKey ? ' disabled' : '') . '><i class="ti ti-brain"></i> Processar IA/RCA agora</button>';
+echo '<button type="submit" name="run_actiontime_now" value="1" class="btn btn-warning"><i class="ti ti-clock-edit"></i> Processar ActionTime agora</button>';
 echo '<button type="submit" name="reset_classifier_cursor" value="1" class="btn btn-outline-danger" onclick="return confirm(\'Reiniciar o cursor fará o histórico ser reavaliado. Continuar?\')"><i class="ti ti-refresh"></i> Reiniciar processamento histórico</button>';
 echo '</div></form></div></div>';
 
